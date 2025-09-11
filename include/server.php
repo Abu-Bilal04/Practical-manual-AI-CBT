@@ -1,145 +1,148 @@
 <?php
-include "db_connection.php";
-$id = isset($_GET['id']) ? trim($_GET['id']) : null;
-
-if (isset($_POST['registertopic'])) {
-
- $studentname = trim($_POST['studentname']);
- $studentregno = trim($_POST['studentregno']);
- $studentlevel = trim($_POST['studentlevel']);
- $studentdate = trim($_POST['studentdate']);
- $studentsupervisor = trim($_POST['studentsupervisor']);
- $studenttopic = trim($_POST['studenttopic']);
- 
-// $topic = $_GET['studenttopic'];
-
- 
-if ($studentlevel == "ND") {
-$checktopic = "SELECT * FROM  ndtopics WHERE studenttopic = '$studenttopic'";
-$checkregno = "SELECT * FROM  ndtopics WHERE studentregno = '$studentregno'";
-$realtopic = mysqli_query($dbcon,  $checktopic);
-$realregno = mysqli_query($dbcon,  $checkregno);
-$finalResultForTopic = mysqli_fetch_assoc($realtopic);
-$finalResultForRegno = mysqli_fetch_assoc($realregno);
- if ($finalResultForTopic)
-echo "<script>window.open('register.php?msg=topicExist','_self')</script>";
-
-   elseif ($finalResultForRegno){
-echo "<script>window.open('register.php?msg=regExist','_self')</script>";   }
+session_start();
+include 'db_connection.php';
 
 
- else{
-    $insert = "INSERT INTO  ndtopics (studentname,studentregno,studentdate,studentsupervisor,studenttopic) 
-   VALUES ('$studentname','$studentregno', '$studentdate','$studentsupervisor', '$studenttopic')";
 
-  if (mysqli_query($dbcon,$insert)) {
-         echo "<script>window.open('register.php?msg=success','_self')</script>";
-  }
- }
- 
-}
-
-elseif($studentlevel == "HND"){
-$checktopic = "SELECT * FROM  hndtopics WHERE studenttopic = '$studenttopic'";
-$checkregno = "SELECT * FROM  hndtopics WHERE studentregno = '$studentregno'";
-$realtopic = mysqli_query($dbcon,  $checktopic);
-$realregno = mysqli_query($dbcon,  $checkregno);
-$finalResultForTopic = mysqli_fetch_assoc($realtopic);
-$finalResultForRegno = mysqli_fetch_assoc($realregno);
- if ($finalResultForTopic)
-   echo "<script>window.open('register.php?msg=topicExist','_self')</script>";
-
-
-   elseif ($finalResultForRegno){
-   echo "<script>window.open('register.php?msg=regExist','_self')</script>";
-   }
-
-
- else{
-    $insert = "INSERT INTO  hndtopics (studentname,studentregno,studentdate,studentsupervisor,studenttopic) 
-   VALUES ('$studentname','$studentregno', '$studentdate','$studentsupervisor' ,'$studenttopic')";
-
-  if (mysqli_query($dbcon,$insert)) {
-         echo "<script>window.open('register.php?msg=success','_self')</script>";
-  }
- }
-}
- 
-else{
-  echo "<script>window.open('register.php?msg=required','_self')</script>";
-}
-}
-
-//admin update
-if (isset($_POST['adminupdate'])) {
-  $admin = trim($_POST['admin']);
+if (isset($_POST['login'])) {
+  $username = trim($_POST['username']);
   $password = trim($_POST['password']);
-  $lower = trim($_POST['lower']);
-  $higher = trim($_POST['higher']);
+
   
-  $sql = "UPDATE adminsetting SET admin = '$admin', password = '$password', lower = '$lower', higher = '$higher'  WHERE id = '1'";
-  if (mysqli_query($dbcon,$sql)) {
-         echo "<script>window.open('dashboard.php?msg=success','_self')</script>";
+       $check_user = "SELECT * FROM admin WHERE username = '$username' AND password='$password'";
+       $run = mysqli_query($dbcon,$check_user);
+       if (mysqli_num_rows($run)>0) {
+        $_SESSION['username'] = $username;
+          echo "<script>window.open('index.php','_self')</script>";
+        }else{
+         echo "<script>window.open('login.php?msg=error','_self')</script>";
+      } 
+}
+
+//for session
+if (isset($_POST['register_session'])) {
+    $session_year = trim($_POST['session_year']);
+
+    // Convert entered year into session format "previous/current"
+    if (is_numeric($session_year) && strlen($session_year) == 4) {
+        $prev_year = $session_year - 1;
+        $session_year = $prev_year . "/" . $session_year;
     }
-    else {
-      # code...
+
+    // Check if session already exists
+    $check = "SELECT * FROM session WHERE session = '$session_year'";
+    $result = mysqli_query($dbcon, $check);
+
+    if (mysqli_num_rows($result) > 0) {
+        // Session already exists
+        echo "<script>window.open('manage_session.php?msg=exists','_self');</script>";
+    } else {
+        // Insert new session
+        $sql = "INSERT INTO session (session) VALUES ('$session_year')";
+        if (mysqli_query($dbcon, $sql)) {
+            echo "<script>window.open('manage_session.php?msg=success','_self');</script>";
+        } else {
+            echo "<script>window.open('manage_session.php?msg=error','_self');</script>";
+        }
     }
 }
 
 
-//lower level update
-if (isset($_POST['updatend'])) {
-  $studentname = trim($_POST['studentname']);
-  $studentregno = trim($_POST['studentregno']);
-  $studentdate = trim($_POST['studentdate']);
-  $studenttopic = trim($_POST['studenttopic']);
+//for level
+if (isset($_POST['register_level'])) {
+    $level_name = trim($_POST['level_name']);
+
+    // Check if level already exists
+    $check = "SELECT * FROM level WHERE level = '$level_name'";
+    $result = mysqli_query($dbcon, $check);
+
+    if (mysqli_num_rows($result) > 0) {
+        // Level already exists
+        echo "<script>window.open('manage_level.php?msg=exists','_self');</script>";
+    } else {
+        // Insert new level
+        $sql = "INSERT INTO level (level) VALUES ('$level_name')";
+        if (mysqli_query($dbcon, $sql)) {
+            echo "<script>window.open('manage_level.php?msg=success','_self');</script>";
+        } else {
+            echo "<script>window.open('manage_level.php?msg=error','_self');</script>";
+        }
+    }
+}
+
+if (isset($_POST['register_course'])) {
+    $level_id = intval($_POST['level_id']);
+    $course_code = trim($_POST['course_code']);
+    $course_title = trim($_POST['course_title']);
+
+    // Check if course code already exists for this level
+    $check_sql = "SELECT * FROM course WHERE course_code = '$course_code' AND level_id = '$level_id'";
+    $check_result = mysqli_query($dbcon, $check_sql);
+
+    if (!$check_result) {
+        die("MySQL error: " . mysqli_error($dbcon));
+    }
+
+    if (mysqli_num_rows($check_result) > 0) {
+        // Course code exists → do not save
+        echo "<script>window.open('register_course.php?msg=exists','_self');</script>";
+    } else {
+        // Insert new course
+        $insert_sql = "INSERT INTO course (level_id, course_code, course_title)
+                       VALUES ('$level_id', '$course_code', '$course_title')";
+        if (mysqli_query($dbcon, $insert_sql)) {
+            echo "<script>window.open('register_course.php?msg=success','_self');</script>";
+        } else {
+            die("MySQL error: " . mysqli_error($dbcon));
+        }
+    }
+}
+
+//register student
+if (isset($_POST['register_student'])) {
+    $fullname = trim(mysqli_real_escape_string($dbcon, $_POST['fullname']));
+    $regno = trim(mysqli_real_escape_string($dbcon, $_POST['regno']));
+    $password = $regno;
+    $level_id = intval($_POST['level_id']);
+
+    // Check for empty fields
+    if (empty($fullname) || empty($regno) || empty($level_id)) {
+        echo "<script>window.open('register_student.php?msg=empty','_self');</script>";
+    } else {
+        // Check if regno already exists
+        $check = "SELECT * FROM student WHERE regno = '$regno' AND level_id = '$level_id'";
+        $result = mysqli_query($dbcon, $check);
+
+        if (mysqli_num_rows($result) > 0) {
+        echo "<script>window.open('register_student.php?msg=exists','_self');</script>";
+        } else {
+            // Insert student
+            $insert = "INSERT INTO student (fullname, regno, password, level_id) VALUES ('$fullname', '$regno', '$password', '$level_id')";
+            if (mysqli_query($dbcon, $insert)) {
+                echo "<script>window.open('register_student.php?msg=success','_self');</script>";
+            } else {
+                echo "<script>window.open('register_student.php?msg=error','_self');</script>";
+            }
+        }
+    }
+}
+
+
+
+// student login
+if (isset($_POST['student_login'])) {
+  $regno = trim($_POST['regno']);
+  $password = trim($_POST['password']);
+
   
-  $sql = "UPDATE ndtopics SET studentname = '$studentname', studentregno = '$studentregno', studentdate = '$studentdate', studenttopic = '$studenttopic'  WHERE id = '$id'";
-  if (mysqli_query($dbcon,$sql)) {
-         echo "<script>window.open('ndrecords.php?msg=success1','_self')</script>";
-    }
-    else {
-      # code...
-    }
+       $check_user = "SELECT * FROM student WHERE regno = '$regno' AND password='$password'";
+       $run = mysqli_query($dbcon,$check_user);
+       if (mysqli_num_rows($run)>0) {
+        $_SESSION['regno'] = $regno;
+          echo "<script>window.open('student/index.php','_self')</script>";
+        }else{
+         echo "<script>window.open('login.php?msg=error','_self')</script>";
+      } 
 }
 
-
-
-//higher level update
-if (isset($_POST['updatehnd'])) {
-  $studentname = trim($_POST['studentname']);
-  $studentregno = trim($_POST['studentregno']);
-  $studentdate = trim($_POST['studentdate']);
-  $studenttopic = trim($_POST['studenttopic']);
-  
-  $sql = "UPDATE hndtopics SET studentname = '$studentname', studentregno = '$studentregno', studentdate = '$studentdate', studenttopic = '$studenttopic'  WHERE id = '$id'";
-  if (mysqli_query($dbcon,$sql)) {
-         echo "<script>window.open('hndrecords.php?msg=success1','_self')</script>";
-    }
-    else {
-      # code...
-    }
-}
-
-
-//check login
-if (isset($_POST['adminLogin'])) {
-    $uname = trim($_POST['username']);
-    $pword = trim($_POST['password']);
-
-    $sql = "SELECT * FROM adminsetting WHERE id = '1'";
-  $run = mysqli_query($dbcon,$sql);
-  $row = mysqli_fetch_assoc($run);
-
-  $name = $row['admin'];
-  $password = $row['password'];
-      if ($uname == $name AND $pword == $password) {
-        echo "<script>window.open('dashboard.php','_self')</script>";
-      }
-
-      else{
-       echo "<script>window.open('login.php?msg=error','_self')</script>";
-      }
-
-
-}
+?>
