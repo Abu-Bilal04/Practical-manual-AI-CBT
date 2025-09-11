@@ -1,287 +1,246 @@
+<?php
+// DB connection
+include "../include/server.php";
+
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Check login
+if (!isset($_SESSION['regno'])) {
+    header("Location: logout.php");
+    exit();
+}
+
+// Fetch student info
+$regno = $_SESSION['regno'];
+$sql = "SELECT id, fullname, regno FROM student WHERE regno = ?";
+$stmt = $dbcon->prepare($sql);
+$stmt->bind_param("s", $regno);
+$stmt->execute();
+$result = $stmt->get_result();
+$student = $result->fetch_assoc();
+
+// Handle password change
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
+    $new_password = trim($_POST['new_password']);
+
+    if (empty($new_password)) {
+        die("Password cannot be empty.");
+    }
+
+    $student_id = $student['id'];
+    $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
+
+    $sql = "UPDATE student SET password = ? WHERE id = ?";
+    $stmt = $dbcon->prepare($sql);
+    $stmt->bind_param("si", $hashed_password, $student_id);
+
+    if ($stmt->execute()) {
+        echo "<script>window.open('index.php?msg=update', '_self');</script>";
+        exit();
+    } else {
+        echo "Error updating password: " . $dbcon->error;
+    }
+}
+?>
 <!doctype html>
-<html lang="en" data-pc-preset="preset-1" data-pc-sidebar-caption="true" data-pc-direction="ltr" dir="ltr" data-pc-theme="light">
-  
-  <head>
-    <title>Dashboard || Practical manual  system</title>
-    
-    <link rel="icon" href="../dist/assets/images/favicon.svg" type="image/x-icon" />
-    <link rel="stylesheet" href="../dist/assets/css/style.css" id="main-style-link" />
-    <link rel="stylesheet" href="../bootstrap-icons/bootstrap-icons.css">
+<html lang="en" data-pc-theme="light">
+<head>
+  <title>Dashboard || Practical manual system</title>
+  <link rel="icon" href="../dist/assets/images/logo/logo.png" type="image/x-icon" />
+  <link rel="stylesheet" href="../dist/assets/css/style.css" id="main-style-link" />
+  <link rel="stylesheet" href="../bootstrap-icons/bootstrap-icons.css">
+  <link href="../iziToast/css/iziToast.min.css" rel="stylesheet" />
+  <script src="../iziToast/js/iziToast.min.js"></script>
+</head>
+<body>
+<?php if (isset($_GET['msg']) && $_GET['msg'] == "update"): ?>
+<script>
+  iziToast.success({
+    message: 'Password updated successfully',
+    position: 'topRight'
+  });
+</script>
+<?php endif; ?>
 
-  </head>
-  
 
-
-  <body>
-    
-    <div class="loader-bg fixed inset-0 bg-white dark:bg-themedark-cardbg z-[1034]">
-      <div class="loader-track h-[5px] w-full inline-block absolute overflow-hidden top-0">
-        <div class="loader-fill w-[300px] h-[5px] bg-primary-500 absolute top-0 left-0 animate-[hitZak_0.6s_ease-in-out_infinite_alternate]"></div>
-      </div>
+<!-- HEADER -->
+<header class="pc-header">
+  <div class="header-wrapper flex px-[15px] sm:px-[25px] grow">
+    <div class="me-auto">
+      <ul class="inline-flex items-center">
+        <li class="pc-h-item pc-sidebar-collapse">
+          <a href="#" class="pc-head-link" id="sidebar-hide"><i data-feather="menu"></i></a>
+        </li>
+      </ul>
     </div>
-
-
-
-    <nav class="pc-sidebar">
-      <div class="navbar-wrapper">
-        <div class="m-header flex items-center py-4 px-6 h-header-height">
-          <a href="../dist/dashboard/index.php" class="b-brand flex items-center gap-3">
-            <center>
-              <img src="../dist/assets/images/logo/logo.jpeg" width="50%" alt="">
-            </center>
+    <div class="ms-auto">
+      <ul class="inline-flex items-center">
+        <li class="dropdown pc-h-item header-user-profile">
+          <a class="pc-head-link dropdown-toggle me-0" data-pc-toggle="dropdown" href="#">
+            <i data-feather="user"></i>
           </a>
-        </div>
-        <div class="navbar-content h-[calc(100vh_-_74px)] py-2.5">
-          <ul class="pc-navbar">
-            <li class="pc-item pc-caption">
-            </li>
-            <li class="pc-item">
-            <li class="pc-item">
-              <a href="index.php" class="pc-link">
-                <span class="pc-micon">
-                  <i data-feather="home"></i>
+          <form method="post">
+            <div class="dropdown-menu dropdown-user-profile dropdown-menu-end pc-h-dropdown p-2 overflow-hidden">
+              <div class="dropdown-header flex items-center py-4 px-5 bg-primary-500">
+                <div class="flex items-center">
+                  <img src="../dist/assets/images/user/avatar-2.jpg" alt="user-image" class="w-10 rounded-full" />
+                  <div class="ms-3">
+                    <h6 class="text-white"><?= htmlspecialchars($student['fullname']); ?></h6>
+                    <span class="text-white"><?= htmlspecialchars($student['regno']); ?></span>
+                  </div>
+                </div>
+              </div>
+              <div class="dropdown-body py-4 px-5">
+                <span>
+                  <input type="password" name="new_password" class="form-control" placeholder="Enter new password" required>
                 </span>
-                <span class="pc-mtext">Dashboard</span>
-              </a>
-            </li>
-
-  
+                <center><button type="submit" name="change_password" class="mt-2 btn btn-primary">Change Password</button></center>
+                <div class="grid my-3">
+                  <a href="logout.php" class="btn btn-danger flex items-center justify-center">Logout</a>
+                </div>
+              </div>
+            </div>
+          </form>
+        </li>
       </ul>
     </div>
   </div>
-</nav>
-
-
-<header class="pc-header">
-  <div class="header-wrapper flex max-sm:px-[15px] px-[25px] grow">
-<div class="me-auto pc-mob-drp">
-  <ul class="inline-flex *:min-h-header-height *:inline-flex *:items-center">
-
-    <li class="pc-h-item pc-sidebar-collapse max-lg:hidden lg:inline-flex">
-      <a href="#" class="pc-head-link ltr:!ml-0 rtl:!mr-0" id="sidebar-hide">
-        <i data-feather="menu"></i>
-      </a>
-    </li>
-    <li class="pc-h-item pc-sidebar-popup lg:hidden">
-      <a href="#" class="pc-head-link ltr:!ml-0 rtl:!mr-0" id="mobile-collapse">
-        <i data-feather="menu"></i>
-      </a>
-    </li>
-    <li class="dropdown pc-h-item">
-      <a class="pc-head-link dropdown-toggle me-0" data-pc-toggle="dropdown" href="#" role="button"
-        aria-haspopup="false" aria-expanded="false">
-        <i data-feather="search"></i>
-      </a>
-      <div class="dropdown-menu pc-h-dropdown drp-search">
-        <form class="px-2 py-1">
-          <input type="search" class="form-control !border-0 !shadow-none" placeholder="Search here. . ." />
-        </form>
-      </div>
-    </li>
-  </ul>
-</div>
-
-<div class="ms-auto">
-  <ul class="inline-flex *:min-h-header-height *:inline-flex *:items-center">
-
-    
-    <li class="dropdown pc-h-item header-user-profile">
-      <a class="pc-head-link dropdown-toggle arrow-none me-0" data-pc-toggle="dropdown" href="#" role="button"
-        aria-haspopup="false" data-pc-auto-close="outside" aria-expanded="false">
-        <i data-feather="user"></i>
-      </a>
-      <div class="dropdown-menu dropdown-user-profile dropdown-menu-end pc-h-dropdown p-2 overflow-hidden">
-        <div class="dropdown-header flex items-center justify-between py-4 px-5 bg-primary-500">
-          <div class="flex mb-1 items-center">
-            <div class="shrink-0">
-              <img src="../dist/assets/images/user/avatar-2.jpg" alt="user-image" class="w-10 rounded-full" />
-            </div>
-            <div class="grow ms-3">
-              <h6 class="mb-1 text-white">Muhammad Ibrahim Musa</h6>
-              <span class="text-white">Admin</span>
-            </div>
-          </div>
-        </div>
-        <div class="dropdown-body py-4 px-5">
-          <div class="profile-notification-scroll position-relative" style="max-height: calc(100vh - 225px)">
-            <a href="#" class="dropdown-item">
-              <span>
-                <input type="password" class="form-control">
-              </span>
-            </a>
-           <center>
-            <button class="btn btn-primary">Change Password</button>
-           </center>
-            <div class="grid my-3">
-              <a href="../dist/pages/login.php" style="cursor: pointer;" class="btn btn-danger flex items-center justify-center">
-                <svg class="pc-icon me-2 w-[22px] h-[22px]">
-                  <use xlink:href="#custom-logout-1-outline"></use>
-                </svg>
-                Logout
-              </a>
-            </div>
-          </div>
-        </div>
-      </div>
-    </li>
-  </ul>
-</div></div>
 </header>
 
-
-
-    <div class="pc-container">
-      <div class="pc-content">
-        <div class="page-header">
-          <div class="page-block">
-            <div class="page-header-title">
-              <h5 class="mb-0 font-medium">Dashboard</h5>
-            </div>
-            <ul class="breadcrumb">
-              <li><a href="index.php">Home</a></li>
-              <i class="bi bi-arrow-right-circle"></i>
-              <li><a href="index.php">Dashboard</a></li>
-            </ul>
-          </div>
+<!-- CONTENT -->
+<div class="pc-container">
+  <div class="pc-content">
+    <div class="page-header">
+      <div class="page-block">
+        <div class="page-header-title">
+          <h5 class="mb-0 font-medium">Dashboard</h5>
         </div>
-
-        <div class="grid grid-cols-12 gap-x-6">
-          <div class="col-span-12 xl:col-span-3 md:col-span-6">
-                <div class="card">
-                    <div class="card-header !pb-0 !border-b-0">
-                    <h5>CSC 201</h5> <!-- Course Code -->
-                    </div>
-                    <div class="card-body">
-                    <div class="mb-3">
-                        <h6 class="font-medium">Introduction to Programming</h6> <!-- Course Title -->
-                    </div>
-                    
-                    <div class="mb-3 flex items-center gap-2">
-                        <i class="bi bi-clock text-primary"></i>
-                        <span id="countdown-1">00:30:00</span> <!-- Countdown -->
-                    </div>
-                    
-                    <div class="text-center">
-                        <button class="btn btn-primary w-full">Take Test</button> <!-- Button -->
-                    </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-span-12 xl:col-span-3 md:col-span-6">
-                <div class="card">
-                    <div class="card-header !pb-0 !border-b-0">
-                    <h5>CSC 201</h5> <!-- Course Code -->
-                    </div>
-                    <div class="card-body">
-                    <div class="mb-3">
-                        <h6 class="font-medium">Introduction to Programming</h6> <!-- Course Title -->
-                    </div>
-                    
-                    <div class="mb-3 flex items-center gap-2">
-                        <i class="bi bi-clock text-primary"></i>
-                        <span id="countdown-1">00:30:00</span> <!-- Countdown -->
-                    </div>
-                    
-                    <div class="text-center">
-                        <button class="btn btn-primary w-full">Take Test</button> <!-- Button -->
-                    </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-span-12 xl:col-span-3 md:col-span-6">
-                <div class="card">
-                    <div class="card-header !pb-0 !border-b-0">
-                    <h5>CSC 201</h5> <!-- Course Code -->
-                    </div>
-                    <div class="card-body">
-                    <div class="mb-3">
-                        <h6 class="font-medium">Introduction to Programming</h6> <!-- Course Title -->
-                    </div>
-                    
-                    <div class="mb-3 flex items-center gap-2">
-                        <i class="bi bi-clock text-primary"></i>
-                        <span id="countdown-1">00:30:00</span> <!-- Countdown -->
-                    </div>
-                    
-                    <div class="text-center">
-                        <button class="btn btn-primary w-full">Take Test</button> <!-- Button -->
-                    </div>
-                    </div>
-                </div>
-            </div>
+        <ul class="breadcrumb">
+          <li><a href="index.php">Home</a></li>
+          <i class="bi bi-arrow-right-circle"></i>
+          <li><a href="index.php">Dashboard</a></li>
+        </ul>
       </div>
     </div>
-    <script>
-    function startCountdown(elementId, durationInSeconds) {
-    let timer = durationInSeconds;
-    const countdownElement = document.getElementById(elementId);
+<?php
+// ✅ Get distinct exam schedules
+$sql = "SELECT q.exam_schedule, q.exam_time
+        FROM questions q
+        GROUP BY q.exam_schedule, q.exam_time
+        ORDER BY q.exam_schedule ASC";
 
-    const interval = setInterval(() => {
-        let hours = Math.floor(timer / 3600);
-        let minutes = Math.floor((timer % 3600) / 60);
-        let seconds = timer % 60;
+$result = mysqli_query($dbcon, $sql);
+$exams = [];
+while ($row = mysqli_fetch_assoc($result)) {
+    $exams[] = $row;
+}
 
-        countdownElement.textContent = 
-        `${hours.toString().padStart(2, '0')}:` +
-        `${minutes.toString().padStart(2, '0')}:` +
-        `${seconds.toString().padStart(2, '0')}`;
+// set timezone
+date_default_timezone_set("Africa/Lagos");
+?>
 
-        if (--timer < 0) {
-        clearInterval(interval);
-        countdownElement.textContent = "Time's up!";
-        }
-    }, 1000);
-    }
+<div class="grid grid-cols-12 gap-6">
+<?php foreach ($exams as $index => $exam): 
+  $exam_schedule = $exam['exam_schedule'];
+  $exam_time     = $exam['exam_time'];
 
-    // Example usage:
-    startCountdown("countdown-1", 1800); // 30 minutes
-    // startCountdown("countdown-2", 3600); // 1 hour
-    </script>
+  $now = new DateTime();
+  $exam_start = new DateTime($exam_schedule);
+  $exam_end   = clone $exam_start;
+  $exam_end->modify("+{$exam_time} minutes");
+  $exam_hide  = clone $exam_end;
+  $exam_hide->modify("+2 hours");
 
-    <script src="../dist/assets/js/plugins/simplebar.min.js"></script>
-    <script src="../dist/assets/js/plugins/popper.min.js"></script>
-    <script src="../dist/assets/js/icon/custom-icon.js"></script>
-    <script src="../dist/assets/js/plugins/feather.min.js"></script>
-    <script src="../dist/assets/js/component.js"></script>
-    <script src="../dist/assets/js/theme.js"></script>
-    <script src="../dist/assets/js/script.js"></script>
+  if ($now > $exam_hide) continue;
 
-    <div class="floting-button fixed bottom-[50px] right-[30px] z-[1030]">
+  if ($now < $exam_start) {
+      $status = "upcoming";
+      $seconds_left = $exam_start->getTimestamp() - $now->getTimestamp();
+  } elseif ($now >= $exam_start && $now <= $exam_end) {
+      $status = "ongoing";
+  } elseif ($now > $exam_end && $now <= $exam_hide) {
+      $status = "passed";
+  } else {
+      continue;
+  }
+?>
+  <div class="col-span-12 sm:col-span-6 lg:col-span-4 xl:col-span-3">
+    <div class="card h-full flex flex-col justify-between">
+      <div class="card-header !pb-0 !border-b-0">
+        <h5 class="text-base sm:text-lg font-semibold">
+          Exam on <?= htmlspecialchars($exam_schedule) ?>
+        </h5>
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <h6 class="font-medium text-gray-700 text-sm sm:text-base">
+            Duration: <?= htmlspecialchars($exam_time) ?> minutes
+          </h6>
+        </div>
+        <div class="mb-3 flex items-center gap-2 flex-wrap">
+          <i class="bi bi-clock text-primary"></i>
+          <?php if ($status === "upcoming"): ?>
+            <span id="countdown-<?= $index ?>" class="text-sm sm:text-base">Loading...</span>
+            <script>startCountdown("countdown-<?= $index ?>", <?= $seconds_left ?>);</script>
+          <?php elseif ($status === "ongoing"): ?>
+            <span class="badge bg-warning text-dark text-sm">Ongoing</span>
+          <?php else: ?>
+            <span class="badge bg-secondary text-sm">Finished</span>
+          <?php endif; ?>
+        </div>
+        <div class="text-center">
+          <?php if ($status === "upcoming"): ?>
+            <button class="btn btn-secondary w-full text-sm sm:text-base" disabled>Not Started</button>
+          <?php elseif ($status === "ongoing"): ?>
+            <a href="take_exam.php?exam_schedule=<?= urlencode($exam_schedule) ?>" 
+               class="btn btn-primary w-full text-sm sm:text-base">Take Test</a>
+          <?php else: ?>
+            <button class="btn btn-dark w-full text-sm sm:text-base" disabled>Closed</button>
+          <?php endif; ?>
+        </div>
+      </div>
     </div>
+  </div>
+<?php endforeach; ?>
+</div>
 
-    
-    <script>
-      layout_change('false');
-    </script>
-     
-    
-    <script>
-      layout_theme_sidebar_change('dark');
-    </script>
-    
-     
-    <script>
-      change_box_container('false');
-    </script>
-     
-    <script>
-      layout_caption_change('true');
-    </script>
-     
-    <script>
-      layout_rtl_change('false');
-    </script>
-     
-    <script>
-      preset_change('preset-1');
-    </script>
-     
-    <script>
-      main_layout_change('vertical');
-    </script>
-    
+</div>
 
-  </body>
+<script>
+function startCountdown(elementId, durationInSeconds) {
+  let timer = durationInSeconds;
+  const countdownElement = document.getElementById(elementId);
+
+  const interval = setInterval(() => {
+    let hours = Math.floor(timer / 3600);
+    let minutes = Math.floor((timer % 3600) / 60);
+    let seconds = timer % 60;
+
+    countdownElement.textContent =
+      `${hours.toString().padStart(2, '0')}:` +
+      `${minutes.toString().padStart(2, '0')}:` +
+      `${seconds.toString().padStart(2, '0')}`;
+
+    if (--timer < 0) {
+      clearInterval(interval);
+      countdownElement.textContent = "Time's up!";
+    }
+  }, 1000);
+}
+</script>
+
+  </div>
+</div>
+
+
+<script src="../dist/assets/js/plugins/simplebar.min.js"></script>
+<script src="../dist/assets/js/plugins/popper.min.js"></script>
+<script src="../dist/assets/js/icon/custom-icon.js"></script>
+<script src="../dist/assets/js/plugins/feather.min.js"></script>
+<script src="../dist/assets/js/component.js"></script>
+<script src="../dist/assets/js/theme.js"></script>
+<script src="../dist/assets/js/script.js"></script>
+</body>
 </html>
