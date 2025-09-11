@@ -9,9 +9,7 @@ if (!isset($_SESSION['username']) || empty($_SESSION['username'])) {
 }
 
 $userusername = $_SESSION['username'];
-?>
-
-<!doctype html>
+?><!doctype html>
 <html lang="en" data-pc-preset="preset-1" data-pc-sidebar-caption="true" data-pc-direction="ltr" dir="ltr" data-pc-theme="light">
   
   <head>
@@ -21,12 +19,17 @@ $userusername = $_SESSION['username'];
     <link rel="stylesheet" href="../dist/assets/css/style.css" id="main-style-link" />
     <link rel="stylesheet" href="../bootstrap-icons/bootstrap-icons.css">
 
+    <!-- iziToast -->
+    <link href="../iziToast/css/iziToast.min.css" rel="stylesheet" />
+    <script src="../iziToast/js/iziToast.min.js" type="text/javascript"></script>
+
+
   </head>
   
 
 
   <body>
-    
+
   <?php if (isset($_GET['msg']) && $_GET['msg'] == "update") { ?>
   <script>
     iziToast.success({
@@ -38,11 +41,23 @@ $userusername = $_SESSION['username'];
   </script>
   <?php } ?>
 
+  <?php if (isset($_GET['msg']) && $_GET['msg'] == "deleted") { ?>
+  <script>
+    iziToast.success({
+      title: '',
+      message: 'Course deleted successfully',
+      position: 'topRight',
+      animateInside: true
+    });
+  </script>
+  <?php } ?>
+
 <div class="loader-bg fixed inset-0 bg-white dark:bg-themedark-cardbg z-[1034]">
   <div class="loader-track h-[5px] w-full inline-block absolute overflow-hidden top-0">
     <div class="loader-fill w-[300px] h-[5px] bg-primary-500 absolute top-0 left-0 animate-[hitZak_0.6s_ease-in-out_infinite_alternate]"></div>
   </div>
 </div>
+
 
 
     <nav class="pc-sidebar">
@@ -84,6 +99,7 @@ $userusername = $_SESSION['username'];
                 <span class="pc-mtext">Manage levels</span>
               </a>
             </li>
+
             
             <li class="pc-item pc-hasmenu">
               <a href="#!" class="pc-link">
@@ -121,18 +137,19 @@ $userusername = $_SESSION['username'];
               </ul>
             </li>
 
-            <li class="pc-item pc-hasmenu">
+            <!-- <li class="pc-item pc-hasmenu">
               <a href="results.php" class="pc-link">
                 <span class="pc-micon"> <i class="bi bi-clipboard-data"></i></span>
                 <span class="pc-mtext">Results</span>
               </a>
-            </li>
+            </li> -->
 
   
       </ul>
     </div>
   </div>
 </nav>
+
 
 <header class="pc-header">
   <div class="header-wrapper flex max-sm:px-[15px] px-[25px] grow">
@@ -229,7 +246,7 @@ $userusername = $_SESSION['username'];
                     $stmt->bind_param("si", $new_password, $admin_id);
 
                     if ($stmt->execute()) {
-                        echo "<script>window.open('results.php?msg=update', '_self');</script>";
+                        echo "<script>window.open('view_course.php?msg=update', '_self');</script>";
                     } else {
                         echo "Error updating password: " . $dbcon->error;
                     }
@@ -258,12 +275,12 @@ $userusername = $_SESSION['username'];
         <div class="page-header">
           <div class="page-block">
             <div class="page-header-title">
-              <h5 class="mb-0 font-medium">All results</h5>
+              <h5 class="mb-0 font-medium">Manage courses</h5>
             </div>
             <ul class="breadcrumb">
               <li><a href="index.php">Home</a></li>
               <i class="bi bi-arrow-right-circle"></i>
-              <li><a href="results.php">Results</a></li>
+              <li><a href="manage_course.php">Course</a></li>
             </ul>
           </div>
         </div>
@@ -274,30 +291,51 @@ $userusername = $_SESSION['username'];
             <div class="col-span-12">
               <div class="card">
                 <div class="card-header">
-                  <h5>Results list</h5>
+                  <h5>Manage Courses</h5>
                 </div>
                 <div class="card-body">
                   <table class="table table-striped table-bordered">
                     <thead class="table-light">
-                      <th>Session</th>
-                      <th>Level</th>
-                      <th>Reg no</th>
-                      <th>Course</th>
-                      <th>Mark</th>
+                      <tr>
+                        <th>S/No</th>
+                        <th>Code</th>
+                        <th>Title</th>
+                        <th>Level</th>
+                        <th>Action</th>
+                      </tr>
                     </thead>
                     <tbody>
-                      <tr>
-                        <td>ND1</td>
-                        <td>ND1</td>
-                        <td>ND1</td>
-                        <td>ND1</td>
-                        <td>ND1</td>
-                      </tr>
+                      <?php
+                      // Fetch courses with level names
+                      $sql = "SELECT c.id, c.course_code, c.course_title, l.level 
+                              FROM course c
+                              JOIN level l ON c.level_id = l.id
+                              ORDER BY c.id DESC";
+
+                      $result = mysqli_query($dbcon, $sql);
+                      $sn = 1;
+
+                      if (mysqli_num_rows($result) > 0) {
+                          while ($row = mysqli_fetch_assoc($result)) {
+                              echo "<tr>";
+                              echo "<td>{$sn}</td>";
+                              echo "<td>{$row['course_code']}</td>";
+                              echo "<td>{$row['course_title']}</td>";
+                              echo "<td>{$row['level']}</td>";
+                              echo "<td><a href='delete/delete_course.php?id={$row['id']}' class='btn btn-danger btn-sm'>Delete</a></td>";
+                              echo "</tr>";
+                              $sn++;
+                          }
+                      } else {
+                          echo "<tr><td colspan='5' class='text-center'>No courses found</td></tr>";
+                      }
+                      ?>
                     </tbody>
                   </table>
                 </div>
               </div>
             </div>
+
         </div>
         
 

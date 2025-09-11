@@ -1,18 +1,89 @@
+<?php
+include "../include/server.php";
+session_start(); 
+
+// Redirect if user not logged in (username required)
+if (!isset($_SESSION['username']) || empty($_SESSION['username'])) {
+    header('Location: logout.php');
+    exit();
+}
+
+$userusername = $_SESSION['username'];
+?>
 <!doctype html>
 <html lang="en" data-pc-preset="preset-1" data-pc-sidebar-caption="true" data-pc-direction="ltr" dir="ltr" data-pc-theme="light">
   
   <head>
     <title>Dashboard || Practical manual  system</title>
     
-    <link rel="icon" href="../dist/assets/images/favicon.svg" type="image/x-icon" />
+    <link rel="icon" href="../dist/assets/images/logo/logo.png" type="image/x-icon" />
     <link rel="stylesheet" href="../dist/assets/css/style.css" id="main-style-link" />
     <link rel="stylesheet" href="../bootstrap-icons/bootstrap-icons.css">
+
+  <!-- iziToast -->
+  <link href="../iziToast/css/iziToast.min.css" rel="stylesheet" />
+  <script src="../iziToast/js/iziToast.min.js" type="text/javascript"></script>
 
   </head>
   
 
 
   <body>
+  <?php if (isset($_GET['msg']) && $_GET['msg'] == "update") { ?>
+  <script>
+    iziToast.success({
+      title: '',
+      message: 'Password uploaded successfully',
+      position: 'topRight',
+      animateInside: true
+    });
+  </script>
+  <?php } ?>
+
+  <?php if (isset($_GET['msg']) && $_GET['msg'] == "success") { ?>
+  <script>
+    iziToast.success({
+      title: '',
+      message: 'Session created successfully',
+      position: 'topRight',
+      animateInside: true
+    });
+  </script>
+  <?php } ?>
+
+  <?php if (isset($_GET['msg']) && $_GET['msg'] == "exists") { ?>
+  <script>
+    iziToast.warning({
+      title: 'Exists',
+      message: 'Session already exists',
+      position: 'topRight',
+      animateInside: true
+    });
+  </script>
+  <?php } ?>
+
+  
+  <?php if (isset($_GET['msg']) && $_GET['msg'] == "error") { ?>
+  <script>
+    iziToast.error({
+      title: '',
+      message: 'Error, try again',
+      position: 'topRight',
+      animateInside: true
+    });
+  </script>
+  <?php } ?>
+
+  <?php if (isset($_GET['msg']) && $_GET['msg'] == "deleted") { ?>
+  <script>
+    iziToast.success({
+      title: '',
+      message: 'Session deleted successfully',
+      position: 'topRight',
+      animateInside: true
+    });
+  </script>
+  <?php } ?>
     
 <div class="loader-bg fixed inset-0 bg-white dark:bg-themedark-cardbg z-[1034]">
   <div class="loader-track h-[5px] w-full inline-block absolute overflow-hidden top-0">
@@ -25,9 +96,9 @@
     <nav class="pc-sidebar">
       <div class="navbar-wrapper">
         <div class="m-header flex items-center py-4 px-6 h-header-height">
-          <a href="../dist/dashboard/index.php" class="b-brand flex items-center gap-3">
+          <a href="index.php" class="b-brand flex items-center gap-3">
             <center>
-              <img src="../dist/assets/images/logo/logo.jpeg" width="50%" alt="">
+              <img src="../dist/assets/images/logo/logo.png" width="50%" alt="">
             </center>
           </a>
         </div>
@@ -37,7 +108,7 @@
             </li>
             <li class="pc-item">
             <li class="pc-item">
-              <a href="../dist/dashboard/index.php" class="pc-link">
+              <a href="index.php" class="pc-link">
                 <span class="pc-micon">
                   <i data-feather="home"></i>
                 </span>
@@ -60,6 +131,18 @@
                 <span class="pc-micon"> <i class="bi bi-layers"></i></span>
                 <span class="pc-mtext">Manage levels</span>
               </a>
+            </li>
+            
+            <li class="pc-item pc-hasmenu">
+              <a href="#!" class="pc-link">
+                <span class="pc-micon"> <i class="bi bi-book"></i></span>
+                <span class="pc-mtext">Courses</span>
+                <span class="pc-arrow"><i class="bi bi-caret-right"></i></span>
+              </a>
+              <ul class="pc-submenu">
+                <li class="pc-item"><a class="pc-link" href="register_course.php"><i class="bi bi-person-plus"></i> Register</a></li>
+                <li class="pc-item"><a class="pc-link" href="view_course.php"><i class="bi bi-person-lines-fill"></i> Manage</a></li>
+              </ul>
             </li>
 
             <li class="pc-item pc-hasmenu">
@@ -86,12 +169,12 @@
               </ul>
             </li>
 
-            <li class="pc-item pc-hasmenu">
+            <!-- <li class="pc-item pc-hasmenu">
               <a href="results.php" class="pc-link">
                 <span class="pc-micon"> <i class="bi bi-clipboard-data"></i></span>
                 <span class="pc-mtext">Results</span>
               </a>
-            </li>
+            </li> -->
 
   
       </ul>
@@ -167,18 +250,42 @@
             </div>
           </div>
         </div>
-        <div class="dropdown-body py-4 px-5">
+        <div class="dropdown-body py- px-5">
           <div class="profile-notification-scroll position-relative" style="max-height: calc(100vh - 225px)">
             <a href="#" class="dropdown-item">
-              <span>
-                <input type="password" class="form-control">
-              </span>
-            </a>
-           <center>
-            <button class="btn btn-primary">Change Password</button>
-           </center>
+              <form method="post">
+                <span>
+                  <input type="password" name="new_password" class="form-control" placeholder="Enter new password" required>
+                </span>
+                <center>
+                  <button type="submit" name="change_password" class="mt-2 btn btn-primary">Change Password</button>
+                </center>
+              </form>
+              <?php
+                if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
+                    $new_password = trim($_POST['new_password']);
+
+                    if (empty($new_password)) {
+                        die("Password cannot be empty.");
+                    }
+
+                    // Get logged-in admin ID from session
+                    $admin_id = $_SESSION['admin_id'] ?? 1; // fallback to admin ID 1
+
+                    // Update password directly (NO HASH)
+                    $sql = "UPDATE admin SET password = ? WHERE id = ?";
+                    $stmt = $dbcon->prepare($sql);
+                    $stmt->bind_param("si", $new_password, $admin_id);
+
+                    if ($stmt->execute()) {
+                        echo "<script>window.open('manage_session.php?msg=update', '_self');</script>";
+                    } else {
+                        echo "Error updating password: " . $dbcon->error;
+                    }
+                }
+                ?>
             <div class="grid my-3">
-              <a href="../dist/pages/login.php" style="cursor: pointer;" class="btn btn-danger flex items-center justify-center">
+              <a href="logout.php" style="cursor: pointer;" class="btn btn-danger flex items-center justify-center">
                 <svg class="pc-icon me-2 w-[22px] h-[22px]">
                   <use xlink:href="#custom-logout-1-outline"></use>
                 </svg>
@@ -211,48 +318,63 @@
         </div>
         
         <div class="grid">
-            <div class="col-span-12">
+            <form method="POST">
+              <div class="col-span-12">
               <div class="card">
                 <div class="card-header">
                   <h5>Register Session</h5>
                 </div>
                 <div class="card-body">
-                  <input type="number" class="form-control" id="floatingInput" placeholder="Enter year" />
+                  <input type="number" class="form-control" id="floatingInput" name="session_year" placeholder="Enter year" />
                 <div class="grid grid-cols-12 gap-x-12 mt-2">
-                    <button class="btn btn-primary">Register</button>
+                    <button class="btn btn-primary" name="register_session">Register</button>
                 </div>
                 </div>
               </div>
             </div>
+            </form>
         </div>
 
 
-        <div class="grid ">
-            <div class="col-span-12">
-              <div class="card">
-                <div class="card-header">
-                  <h5>Manage Session</h5>
-                </div>
-                <div class="card-body">
-                  <table class="table table-striped table-bordered">
+        <div class="grid">
+    <div class="col-span-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>Manage Session</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-striped table-bordered">
                     <thead class="table-light">
-                      <th>S/No</th>
-                      <th>List</th>
-                      <th>Action</th>
+                        <tr>
+                            <th>S/No</th>
+                            <th>List</th>
+                            <th>Action</th>
+                        </tr>
                     </thead>
                     <tbody>
-                      <tr>
-                        <td>1</td>
-                        <td>ND1</td>
-                        <td><a href="#" class="btn btn-danger">Delete</a></td>
-                      </tr>
+                        <?php
+                        $sql = "SELECT * FROM session ORDER BY id DESC";
+                        $result = mysqli_query($dbcon, $sql);
+                        $sn = 1;
+                        if (mysqli_num_rows($result) > 0) {
+                            while ($row = mysqli_fetch_assoc($result)) {
+                                echo "<tr>";
+                                echo "<td>" . $sn++ . "</td>";
+                                echo "<td>" . $row['session'] . "</td>";
+                                echo "<td><a href='delete/delete_session.php?id=" . $row['id'] . "' class='btn btn-danger btn-sm'>Delete</a></td>";
+                                echo "</tr>";
+                            }
+                        } else {
+                            echo "<tr><td colspan='3' class='text-center'>No session found</td></tr>";
+                        }
+                        ?>
                     </tbody>
-                  </table>
-                </div>
-              </div>
+                </table>
             </div>
         </div>
-        
+    </div>
+</div>
+
 
       </div>
     </div>

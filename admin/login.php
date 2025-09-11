@@ -1,3 +1,4 @@
+<?php include "../include/server.php"; ?>
 <!doctype html>
 <html lang="en" data-pc-preset="preset-1" data-pc-sidebar-caption="true" data-pc-direction="ltr" dir="ltr" data-pc-theme="light">
   <!-- [Head] start -->
@@ -7,10 +8,25 @@
     <link rel="icon" href="../dist/assets/images/favicon.svg" type="image/x-icon" />
     <link rel="stylesheet" href="../dist/assets/css/style.css" id="main-style-link" />
 
+  <!-- iziToast -->
+  <link href="iziToast/css/iziToast.min.css" rel="stylesheet" />
+  <script src="iziToast/js/iziToast.min.js" type="text/javascript"></script>
+
   </head>
 
   <body>
     
+  <?php if (isset($_GET['msg']) && $_GET['msg'] == "error") { ?>
+  <script>
+    iziToast.error({
+      title: '',
+      message: 'Error, try again',
+      position: 'topCenter',
+      animateInside: true
+    });
+  </script>
+  <?php } ?>
+
     <div class="loader-bg fixed inset-0 bg-white dark:bg-themedark-cardbg z-[1034]">
       <div class="loader-track h-[5px] w-full inline-block absolute overflow-hidden top-0">
         <div class="loader-fill w-[300px] h-[5px] bg-primary-500 absolute top-0 left-0 animate-[hitZak_0.6s_ease-in-out_infinite_alternate]"></div>
@@ -27,27 +43,29 @@
               <span class="absolute left-[-150px] bottom-[150px] w-5 h-5 block rounded-full bg-theme-bg-1 animate-[floating_7s_infinite]"></span>
               <span class="absolute left-[-100px] bottom-[-100px] w-[300px] h-[300px] block rounded-full bg-theme-bg-2 animate-[floating_9s_infinite]"></span>
             </div>
-            <div class="card sm:my-12  w-full shadow-none">
+            <form method="post">
+              <div class="card sm:my-12  w-full shadow-none">
               <div class="card-body !p-10">
                 <div class="text-center mb-8">
                   <!-- <a href="#"><img src="" alt="img" class="mx-auto auth-logo"/></a> -->
                 </div>
-                <h4 class="text-center font-medium mb-4">Login</h4>
+                <h4 class="text-center font-medium mb-4">Admin Login</h4>
                 <div class="mb-3">
-                  <input type="text" class="form-control" id="floatingInput" placeholder="Enter username" />
+                  <input type="text" class="form-control" id="floatingInput" placeholder="Enter username" name="username"/>
                 </div>
                 <div class="mb-4">
-                  <input type="password" class="form-control" id="floatingInput1" placeholder="Enter password" />
+                  <input type="password" class="form-control" id="floatingInput1" placeholder="Enter password" name="password"/>
                 </div>
                 <div class="flex mt-1 justify-between items-center flex-wrap">
                 </div>
                 <div class="mt-4 text-center">
-                  <a href="../dist/dashboard/index.php" type="button" class="btn btn-primary mx-auto shadow-2xl">Login</a>
+                  <button type="submit" class="btn btn-primary mx-auto shadow-2xl" name="login">Login</button>
                 </div>
                 <div class="flex justify-between items-end flex-wrap mt-4">
                 </div>
               </div>
             </div>
+            </form>
           </div>
           
         </div>

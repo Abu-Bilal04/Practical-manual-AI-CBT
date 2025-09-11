@@ -1,32 +1,121 @@
+<?php
+include "../include/server.php";
+session_start();
+
+// Redirect if user not logged in (username required)
+if (!isset($_SESSION['username']) || empty($_SESSION['username'])) {
+    header('Location: logout.php');
+    exit();
+}
+
+$userusername = $_SESSION['username'];
+?>
 <!doctype html>
 <html lang="en" data-pc-preset="preset-1" data-pc-sidebar-caption="true" data-pc-direction="ltr" dir="ltr" data-pc-theme="light">
-  
-  <head>
+<head>
     <title>Dashboard || Practical manual system</title>
-    
-    <link rel="icon" href="../dist/assets/images/favicon.svg" type="image/x-icon" />
+    <link rel="icon" href="../dist/assets/images/logo/logo.png" type="image/x-icon" />
     <link rel="stylesheet" href="../dist/assets/css/style.css" id="main-style-link" />
     <link rel="stylesheet" href="../bootstrap-icons/bootstrap-icons.css">
 
-  </head>
+  <!-- iziToast -->
+  <link href="../iziToast/css/iziToast.min.css" rel="stylesheet" />
+  <script src="../iziToast/js/iziToast.min.js" type="text/javascript"></script>
+</head>
+<body>
+
+  <?php if (isset($_GET['msg']) && $_GET['msg'] == "update") { ?>
+  <script>
+    iziToast.success({
+      title: '',
+      message: 'Password uploaded successfully',
+      position: 'topRight',
+      animateInside: true
+    });
+  </script>
+  <?php } ?>
+
+   <?php if (isset($_GET['msg']) && $_GET['msg'] == "success") { ?>
+  <script>
+    iziToast.success({
+      title: '',
+      message: 'Questions saved successfully',
+      position: 'topRight',
+      animateInside: true
+    });
+  </script>
+  <?php } ?>
   
+<?php
+// ----------------- Handle Save Exam -----------------
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_exam'])) {
+    error_reporting(E_ALL);
+    ini_set('display_errors', 1);
 
+    if (!isset($dbcon)) {
+        die("Database connection not available.");
+    }
 
-  <body>
-    
-<div class="loader-bg fixed inset-0 bg-white dark:bg-themedark-cardbg z-[1034]">
-  <div class="loader-track h-[5px] w-full inline-block absolute overflow-hidden top-0">
-    <div class="loader-fill w-[300px] h-[5px] bg-primary-500 absolute top-0 left-0 animate-[hitZak_0.6s_ease-in-out_infinite_alternate]"></div>
-  </div>
-</div>
+    $session_id    = intval($_POST['session_id']);
+    $level_id      = intval($_POST['level_id']);
+    $course_id     = intval($_POST['course_id']);
+    $exam_time     = mysqli_real_escape_string($dbcon, $_POST['exam_time']);
+    $exam_schedule = mysqli_real_escape_string($dbcon, $_POST['exam_schedule']);
 
+    if ($session_id <= 0 || $level_id <= 0 || $course_id <= 0) {
+        die("Missing exam setup values. Check hidden inputs.");
+    }
 
-    <nav class="pc-sidebar">
-      <div class="navbar-wrapper">
+    if (!empty($_POST['questions'])) {
+        foreach ($_POST['questions'] as $idx => $q) {
+            if (!isset($q['text'], $q['option_a'], $q['option_b'], $q['option_c'], $q['option_d'], $q['correct'])) {
+                die("Missing values in question #$idx");
+            }
+
+            $question_text = mysqli_real_escape_string($dbcon, $q['text']);
+            $opt_a         = mysqli_real_escape_string($dbcon, $q['option_a']);
+            $opt_b         = mysqli_real_escape_string($dbcon, $q['option_b']);
+            $opt_c         = mysqli_real_escape_string($dbcon, $q['option_c']);
+            $opt_d         = mysqli_real_escape_string($dbcon, $q['option_d']);
+            $correct       = mysqli_real_escape_string($dbcon, $q['correct']);
+
+            $sql_question = "INSERT INTO questions (session_id, level_id, course_id, question_text, exam_time, exam_schedule) 
+                             VALUES ('$session_id', '$level_id', '$course_id', '$question_text', '$exam_time', '$exam_schedule')";
+            if (mysqli_query($dbcon, $sql_question)) {
+                $question_id = mysqli_insert_id($dbcon);
+
+                $sql_answer = "INSERT INTO answer (question_id, opt_a, opt_b, opt_c, opt_d, correct_option) 
+                               VALUES ('$question_id', '$opt_a', '$opt_b', '$opt_c', '$opt_d', '$correct')";
+                if (!mysqli_query($dbcon, $sql_answer)) {
+                    die("Error saving answers: " . mysqli_error($dbcon));
+                }
+            } else {
+                die("Error saving question: " . mysqli_error($dbcon));
+            }
+        }
+        echo "<script>window.open('set_question.php?msg=success','_self');</script>";
+        exit();
+    } else {
+        die("No questions submitted.");
+    }
+}
+
+// ----------------- Handle Proceed -----------------
+$session_id    = isset($_POST['session_id']) ? intval($_POST['session_id']) : 0;
+$level_id      = isset($_POST['level_id']) ? intval($_POST['level_id']) : 0;
+$course_id     = isset($_POST['course_id']) ? intval($_POST['course_id']) : 0;
+$exam_time     = isset($_POST['exam_time']) ? $_POST['exam_time'] : "";
+$exam_schedule = isset($_POST['exam_schedule']) ? $_POST['exam_schedule'] : "";
+$num_questions = isset($_POST['num_questions']) ? intval($_POST['num_questions']) : 0;
+?>
+
+<!-- Your Sidebar & Header (unchanged for brevity) -->
+<nav class="pc-sidebar"> 
+ <div class="navbar-wrapper">
         <div class="m-header flex items-center py-4 px-6 h-header-height">
-          <a href="../dist/dashboard/index.php" class="b-brand flex items-center gap-3">
+          <a href="index.php" class="b-brand flex items-center gap-3">
             <center>
-              <img src="../dist/assets/images/logo/logo.jpeg" width="50%" alt="">
+              <img src="../dist/assets/images/logo/logo.png" width="50%" alt="">
             </center>
           </a>
         </div>
@@ -36,7 +125,7 @@
             </li>
             <li class="pc-item">
             <li class="pc-item">
-              <a href="../dist/dashboard/index.php" class="pc-link">
+              <a href="index.php" class="pc-link">
                 <span class="pc-micon">
                   <i data-feather="home"></i>
                 </span>
@@ -59,6 +148,18 @@
                 <span class="pc-micon"> <i class="bi bi-layers"></i></span>
                 <span class="pc-mtext">Manage levels</span>
               </a>
+            </li>
+            
+            <li class="pc-item pc-hasmenu">
+              <a href="#!" class="pc-link">
+                <span class="pc-micon"> <i class="bi bi-book"></i></span>
+                <span class="pc-mtext">Courses</span>
+                <span class="pc-arrow"><i class="bi bi-caret-right"></i></span>
+              </a>
+              <ul class="pc-submenu">
+                <li class="pc-item"><a class="pc-link" href="register_course.php"><i class="bi bi-person-plus"></i> Register</a></li>
+                <li class="pc-item"><a class="pc-link" href="view_course.php"><i class="bi bi-person-lines-fill"></i> Manage</a></li>
+              </ul>
             </li>
 
             <li class="pc-item pc-hasmenu">
@@ -85,22 +186,20 @@
               </ul>
             </li>
 
-            <li class="pc-item pc-hasmenu">
+            <!-- <li class="pc-item pc-hasmenu">
               <a href="results.php" class="pc-link">
                 <span class="pc-micon"> <i class="bi bi-clipboard-data"></i></span>
                 <span class="pc-mtext">Results</span>
               </a>
-            </li>
+            </li> -->
 
   
       </ul>
     </div>
   </div>
 </nav>
-
-
 <header class="pc-header">
-  <div class="header-wrapper flex max-sm:px-[15px] px-[25px] grow">
+    <div class="header-wrapper flex max-sm:px-[15px] px-[25px] grow">
 <div class="me-auto pc-mob-drp">
   <ul class="inline-flex *:min-h-header-height *:inline-flex *:items-center">
 
@@ -166,18 +265,42 @@
             </div>
           </div>
         </div>
-        <div class="dropdown-body py-4 px-5">
+        <div class="dropdown-body py- px-5">
           <div class="profile-notification-scroll position-relative" style="max-height: calc(100vh - 225px)">
             <a href="#" class="dropdown-item">
-              <span>
-                <input type="password" class="form-control">
-              </span>
-            </a>
-           <center>
-            <button class="btn btn-primary">Change Password</button>
-           </center>
+              <form method="post">
+                <span>
+                  <input type="password" name="new_password" class="form-control" placeholder="Enter new password" required>
+                </span>
+                <center>
+                  <button type="submit" name="change_password" class="mt-2 btn btn-primary">Change Password</button>
+                </center>
+              </form>
+              <?php
+                if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
+                    $new_password = trim($_POST['new_password']);
+
+                    if (empty($new_password)) {
+                        die("Password cannot be empty.");
+                    }
+
+                    // Get logged-in admin ID from session
+                    $admin_id = $_SESSION['admin_id'] ?? 1; // fallback to admin ID 1
+
+                    // Update password directly (NO HASH)
+                    $sql = "UPDATE admin SET password = ? WHERE id = ?";
+                    $stmt = $dbcon->prepare($sql);
+                    $stmt->bind_param("si", $new_password, $admin_id);
+
+                    if ($stmt->execute()) {
+                        echo "<script>window.open('set_question.php?msg=update', '_self');</script>";
+                    } else {
+                        echo "Error updating password: " . $dbcon->error;
+                    }
+                }
+                ?>
             <div class="grid my-3">
-              <a href="../dist/pages/login.php" style="cursor: pointer;" class="btn btn-danger flex items-center justify-center">
+              <a href="logout.php" style="cursor: pointer;" class="btn btn-danger flex items-center justify-center">
                 <svg class="pc-icon me-2 w-[22px] h-[22px]">
                   <use xlink:href="#custom-logout-1-outline"></use>
                 </svg>
@@ -192,112 +315,123 @@
 </div></div>
 </header>
 
-
-
-    <div class="pc-container">
-      <div class="pc-content">
-        <div class="page-header">
-          <div class="page-block">
-            <div class="page-header-title">
-              <h5 class="mb-0 font-medium">Set question</h5>
-            </div>
-            <ul class="breadcrumb">
-              <li><a href="index.php">Home</a></li>
-              <i class="bi bi-arrow-right-circle"></i>
-              <li><a href="set_question.php">question</a></li>
-            </ul>
-          </div>
+<div class="pc-container">
+  <div class="pc-content">
+    <div class="page-header">
+      <div class="page-block">
+        <div class="page-header-title">
+          <h5 class="mb-0 font-medium">Set question</h5>
         </div>
-        
-        <div class="grid">
-            <div class="col-span-12">
-              <div class="card">
-                <div class="card-header">
-                  <h5>Set question</h5>
-                </div>
-                <div class="card-body">
-                  <select name="session" class="form-control mb-3" id="session">
-                    <option value="">--Select session--</option>
-                    <option value="ND1">ND1</option>
-                  </select>
-
-                  <select name="level" class="form-control mb-3" id="level">
-                    <option value="">--Select level--</option>
-                    <option value="ND1">ND1</option>
-                  </select>
-
-                  <select name="course" class="form-control mb-3" id="course">
-                    <option value="">--Select course--</option>
-                    <option value="ND1">ND1</option>
-                  </select>
-
-                  <label for="material">Upload material</label>
-                  <input type="file" class="form-control mb-3" id="material" />
-
-                  <label for="question">Number of question</label>
-                  <input type="text" class="form-control mb-3" id="question" placeholder="Enter no. of question" />
-                  
-                  <label for="time">Exam time</label>
-                  <input type="number" class="form-control mb-3" id="time" placeholder="Enter time in minutes" />
-                  
-                  <label for="schedule">Exam schedule</label>
-                  <input type="datetime-local" class="form-control mb-3" id="schedule" placeholder="Enter starting time" />
-                  
-                <div class="grid-cols-12 gap-x-12 mt-2">
-                    <button class="btn btn-primary">Upload question</button>
-                </div>
-                </div>
-              </div>
-            </div>
-        </div>
-        
-
       </div>
     </div>
-    
 
-    <script src="../dist/assets/js/plugins/simplebar.min.js"></script>
-    <script src="../dist/assets/js/plugins/popper.min.js"></script>
-    <script src="../dist/assets/js/icon/custom-icon.js"></script>
-    <script src="../dist/assets/js/plugins/feather.min.js"></script>
-    <script src="../dist/assets/js/component.js"></script>
-    <script src="../dist/assets/js/theme.js"></script>
-    <script src="../dist/assets/js/script.js"></script>
+    <div class="grid">
+      <div class="col-span-12">
+        <div class="card">
+          <div class="card-header">
+            <h5>Set question</h5>
+          </div>
+          <div class="card-body">
 
-    <div class="floting-button fixed bottom-[50px] right-[30px] z-[1030]">
+          <!-- Step 1: Exam Setup -->
+          <form method="post">
+              <div class="card">
+                  <div class="card-header"><h5>Setup Exam</h5></div>
+                  <div class="card-body">
+                      <!-- Session -->
+                      <select name="session_id" class="form-control mb-3" required>
+                          <option value="">--Select session--</option>
+                          <?php
+                          $sql = "SELECT * FROM session ORDER BY id ASC";
+                          $result = mysqli_query($dbcon, $sql);
+                          while ($row = mysqli_fetch_assoc($result)) {
+                              echo "<option value='" . $row['id'] . "'>" . $row['session'] . "</option>";
+                          }
+                          ?>
+                      </select>
+
+                      <!-- Level -->
+                      <select name="level_id" class="form-control mb-3" required>
+                          <option value="">--Select level--</option>
+                          <?php
+                          $sql = "SELECT * FROM level ORDER BY id ASC";
+                          $result = mysqli_query($dbcon, $sql);
+                          while ($row = mysqli_fetch_assoc($result)) {
+                              echo "<option value='" . $row['id'] . "'>" . $row['level'] . "</option>";
+                          }
+                          ?>
+                      </select>
+
+                      <!-- Course -->
+                      <select name="course_id" class="form-control mb-3" required>
+                          <option value="">--Select course--</option>
+                          <?php
+                          $sql = "SELECT * FROM course ORDER BY id ASC";
+                          $result = mysqli_query($dbcon, $sql);
+                          while ($row = mysqli_fetch_assoc($result)) {
+                              echo "<option value='" . $row['id'] . "'>" . $row['course_code'] . "</option>";
+                          }
+                          ?>
+                      </select>
+
+                      <input type="number" name="num_questions" class="form-control mb-3" placeholder="Number of Questions" required />
+                      <input type="text" name="exam_time" class="form-control mb-3" placeholder="Exam Time (mins)" required />
+                      <input type="datetime-local" name="exam_schedule" class="form-control mb-3" required />
+                      <button type="submit" name="proceed" class="btn btn-primary">Proceed</button>
+                  </div>
+              </div>
+          </form>
+
+          <!-- Step 2: Questions Form -->
+          <?php if ($num_questions > 0): ?>
+          <form method="post" action="set_question.php">
+              <input type="hidden" name="session_id" value="<?= htmlspecialchars($session_id) ?>">
+              <input type="hidden" name="level_id" value="<?= htmlspecialchars($level_id) ?>">
+              <input type="hidden" name="course_id" value="<?= htmlspecialchars($course_id) ?>">
+              <input type="hidden" name="exam_time" value="<?= htmlspecialchars($exam_time) ?>">
+              <input type="hidden" name="exam_schedule" value="<?= htmlspecialchars($exam_schedule) ?>">
+
+              <div class="card mt-4">
+                  <div class="card-header"><h5>Enter Questions</h5></div>
+                  <div class="card-body">
+                      <?php for ($i = 1; $i <= $num_questions; $i++): ?>
+                          <div class="mb-4 p-3 border rounded">
+                              <h6>Question <?= $i ?></h6>
+                              <textarea name="questions[<?= $i ?>][text]" class="form-control mb-2" placeholder="Enter question text" required></textarea>
+
+                              <input type="text" name="questions[<?= $i ?>][option_a]" class="form-control mb-2" placeholder="Option A" required />
+                              <input type="text" name="questions[<?= $i ?>][option_b]" class="form-control mb-2" placeholder="Option B" required />
+                              <input type="text" name="questions[<?= $i ?>][option_c]" class="form-control mb-2" placeholder="Option C" required />
+                              <input type="text" name="questions[<?= $i ?>][option_d]" class="form-control mb-2" placeholder="Option D" required />
+
+                              <select name="questions[<?= $i ?>][correct]" class="form-control" required>
+                                  <option value="">--Correct Answer--</option>
+                                  <option value="A">Option A</option>
+                                  <option value="B">Option B</option>
+                                  <option value="C">Option C</option>
+                                  <option value="D">Option D</option>
+                              </select>
+                          </div>
+                      <?php endfor; ?>
+                      <button type="submit" name="save_exam" class="btn btn-success">Save Exam</button>
+                  </div>
+              </div>
+          </form>
+          <?php endif; ?>
+
+          </div>
+        </div>
+      </div>
     </div>
+  </div>
+</div>
 
-    
-    <script>
-      layout_change('false');
-    </script>
-     
-    
-    <script>
-      layout_theme_sidebar_change('dark');
-    </script>
-    
-     
-    <script>
-      change_box_container('false');
-    </script>
-     
-    <script>
-      layout_caption_change('true');
-    </script>
-     
-    <script>
-      layout_rtl_change('false');
-    </script>
-     
-    <script>
-      preset_change('preset-1');
-    </script>
-     
-    <script>
-      main_layout_change('vertical');
-    </script>
-    
-
-  </body>
+<script src="../dist/assets/js/plugins/simplebar.min.js"></script>
+<script src="../dist/assets/js/plugins/popper.min.js"></script>
+<script src="../dist/assets/js/icon/custom-icon.js"></script>
+<script src="../dist/assets/js/plugins/feather.min.js"></script>
+<script src="../dist/assets/js/component.js"></script>
+<script src="../dist/assets/js/theme.js"></script>
+<script src="../dist/assets/js/script.js"></script>
+</body>
 </html>
