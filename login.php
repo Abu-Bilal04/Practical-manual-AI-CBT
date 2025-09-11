@@ -1,10 +1,17 @@
+<?php include "include/server.php"; ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Apple Login Page</title>
+  <title>CBT Login Page</title>
   <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- iziToast -->
+  <link href="iziToast/css/iziToast.min.css" rel="stylesheet" />
+  <script src="iziToast/js/iziToast.min.js" type="text/javascript"></script>
+
   <style>
     body, html {
       margin: 0;
@@ -23,22 +30,33 @@
 </head>
 <body class="flex items-center justify-center bg-gradient-to-tr from-blue-200 to-purple-300 relative">
 
+  <?php if (isset($_GET['msg']) && $_GET['msg'] == "error") { ?>
+  <script>
+    iziToast.error({
+      title: 'Error:',
+      message: 'An error occured!',
+      position: 'topRight',
+      animateInside: true
+    });
+  </script>
+  <?php } ?>
+
   <!-- Canvas for Apples -->
   <canvas id="appleCanvas"></canvas>
 
   <!-- Login Card -->
   <div class="relative z-10 bg-white shadow-2xl rounded-2xl p-8 w-full max-w-md">
     <h2 class="text-2xl font-bold text-center mb-6 text-gray-700">Login</h2>
-    <form class="space-y-4">
+    <form class="space-y-4" method="POST">
       <div>
-        <label class="block text-gray-600 mb-1">Email</label>
-        <input type="email" class="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400" placeholder="Enter your email" required>
+        <label class="block text-gray-600 mb-1">Reg no</label>
+        <input type="text" name="regno" class="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400" placeholder="Enter your regno." required>
       </div>
       <div>
         <label class="block text-gray-600 mb-1">Password</label>
-        <input type="password" class="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400" placeholder="Enter your password" required>
+        <input type="password" name="password" class="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400" placeholder="Enter your password" required>
       </div>
-      <button type="submit" class="w-full bg-blue-500 text-white py-2 rounded-xl hover:bg-blue-600 transition">Login</button>
+      <button type="submit" class="w-full bg-blue-500 text-white py-2 rounded-xl hover:bg-blue-600 transition" name="student_login">Login</button>
     </form>
   </div>
 
