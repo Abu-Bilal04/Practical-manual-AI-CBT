@@ -24,11 +24,7 @@ $student = $result->fetch_assoc();
 // Handle password change
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
     $new_password = trim($_POST['new_password']);
-
-    if (empty($new_password)) {
-        die("Password cannot be empty.");
-    }
-
+    if (empty($new_password)) die("Password cannot be empty.");
     $student_id = $student['id'];
     $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
 
@@ -42,6 +38,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
     } else {
         echo "Error updating password: " . $dbcon->error;
     }
+}
+
+// set timezone
+date_default_timezone_set("Africa/Lagos");
+
+// Fetch unique exam schedules
+$sql = "SELECT DISTINCT exam_schedule, exam_time FROM questions ORDER BY exam_schedule ASC";
+$result = mysqli_query($dbcon, $sql);
+$schedules = [];
+while ($row = mysqli_fetch_assoc($result)) {
+    $schedules[] = $row;
 }
 ?>
 <!doctype html>
@@ -63,7 +70,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
   });
 </script>
 <?php endif; ?>
-
 
 <!-- HEADER -->
 <header class="pc-header">
@@ -124,80 +130,87 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
         </ul>
       </div>
     </div>
-<?php
-// ✅ Get distinct exam schedules
-$sql = "SELECT q.exam_schedule, q.exam_time
-        FROM questions q
-        GROUP BY q.exam_schedule, q.exam_time
-        ORDER BY q.exam_schedule ASC";
-
-$result = mysqli_query($dbcon, $sql);
-$exams = [];
-while ($row = mysqli_fetch_assoc($result)) {
-    $exams[] = $row;
-}
-
-// set timezone
-date_default_timezone_set("Africa/Lagos");
-?>
 
 <div class="grid grid-cols-12 gap-6">
-<?php foreach ($exams as $index => $exam): 
-  $exam_schedule = $exam['exam_schedule'];
-  $exam_time     = $exam['exam_time'];
+<?php foreach ($schedules as $index => $scheduleRow): 
+    $exam_schedule = $scheduleRow['exam_schedule'];
+    $exam_time     = $scheduleRow['exam_time'];
 
-  $now = new DateTime();
-  $exam_start = new DateTime($exam_schedule);
-  $exam_end   = clone $exam_start;
-  $exam_end->modify("+{$exam_time} minutes");
-  $exam_hide  = clone $exam_end;
-  $exam_hide->modify("+2 hours");
+    $now = new DateTime();
+    $exam_start = new DateTime($exam_schedule);
+    $exam_end   = clone $exam_start;
+    $exam_end->modify("+{$exam_time} minutes");
+    $exam_hide  = clone $exam_end;
+    $exam_hide->modify("+2 hours");
 
-  if ($now > $exam_hide) continue;
+    // Skip card if more than 2 hours past exam
+    if ($now > $exam_hide) continue;
 
-  if ($now < $exam_start) {
-      $status = "upcoming";
-      $seconds_left = $exam_start->getTimestamp() - $now->getTimestamp();
-  } elseif ($now >= $exam_start && $now <= $exam_end) {
-      $status = "ongoing";
-  } elseif ($now > $exam_end && $now <= $exam_hide) {
-      $status = "passed";
-  } else {
-      continue;
-  }
+    // Determine status
+    if ($now < $exam_start) {
+        $status = "not_yet";
+        $seconds_left = $exam_start->getTimestamp() - $now->getTimestamp();
+    } elseif ($now >= $exam_start && $now <= $exam_hide) {
+        $status = "take_exam";
+    } else {
+        continue;
+    }
+
+    // Fetch all courses/levels for this exam_schedule
+    $sql_courses = "SELECT q.course_id, c.course_code, c.course_title, q.level_id
+                    FROM questions q
+                    JOIN course c ON q.course_id = c.id
+                    WHERE q.exam_schedule = ?";
+    $stmt = $dbcon->prepare($sql_courses);
+    $stmt->bind_param("s", $exam_schedule);
+    $stmt->execute();
+    $courses_result = $stmt->get_result();
+    $courses = [];
+    while ($course = $courses_result->fetch_assoc()) {
+        $courses[] = $course;
+    }
+
+    // Format exam_schedule to 12-hour format
+    $exam_display = date("Y-m-d h:ia", strtotime($exam_schedule));
 ?>
   <div class="col-span-12 sm:col-span-6 lg:col-span-4 xl:col-span-3">
     <div class="card h-full flex flex-col justify-between">
       <div class="card-header !pb-0 !border-b-0">
         <h5 class="text-base sm:text-lg font-semibold">
-          Exam on <?= htmlspecialchars($exam_schedule) ?>
+          Exam Schedule: <?= htmlspecialchars($exam_display) ?>
         </h5>
       </div>
       <div class="card-body">
         <div class="mb-3">
-          <h6 class="font-medium text-gray-700 text-sm sm:text-base">
-            Duration: <?= htmlspecialchars($exam_time) ?> minutes
-          </h6>
+          <?php foreach ($courses as $c): ?>
+            <h6 class="font-medium text-gray-700 text-sm sm:text-base">
+              <?= htmlspecialchars($c['course_code']) ?> - <?= htmlspecialchars($c['course_title']) ?> 
+              (Level <?= htmlspecialchars($c['level_id']) ?>)
+            </h6>
+            <?php if ($status === "take_exam"): ?>
+                <a href="ready.php?exam_schedule=<?= urlencode($exam_schedule) ?>&course_code=<?= urlencode($c['course_code']) ?>&level=<?= urlencode($c['level_id']) ?>" 
+                   class="btn btn-primary w-full text-sm sm:text-base mb-2">
+                   Take Exam
+                </a>
+            <?php endif; ?>
+          <?php endforeach; ?>
         </div>
+
         <div class="mb-3 flex items-center gap-2 flex-wrap">
           <i class="bi bi-clock text-primary"></i>
-          <?php if ($status === "upcoming"): ?>
+          <?php if ($status === "not_yet"): ?>
             <span id="countdown-<?= $index ?>" class="text-sm sm:text-base">Loading...</span>
-            <script>startCountdown("countdown-<?= $index ?>", <?= $seconds_left ?>);</script>
-          <?php elseif ($status === "ongoing"): ?>
-            <span class="badge bg-warning text-dark text-sm">Ongoing</span>
-          <?php else: ?>
-            <span class="badge bg-secondary text-sm">Finished</span>
+            <script>
+            startCountdown("countdown-<?= $index ?>", <?= $seconds_left ?>);
+            </script>
+          <?php elseif ($status === "take_exam"): ?>
+            <span class="badge bg-success text-white text-sm">Time to Take Exam</span>
           <?php endif; ?>
         </div>
+
         <div class="text-center">
-          <?php if ($status === "upcoming"): ?>
-            <button class="btn btn-secondary w-full text-sm sm:text-base" disabled>Not Started</button>
-          <?php elseif ($status === "ongoing"): ?>
-            <a href="take_exam.php?exam_schedule=<?= urlencode($exam_schedule) ?>" 
-               class="btn btn-primary w-full text-sm sm:text-base">Take Test</a>
-          <?php else: ?>
-            <button class="btn btn-dark w-full text-sm sm:text-base" disabled>Closed</button>
+          <?php if ($status === "not_yet"): ?>
+            <button class="btn btn-secondary w-full text-sm sm:text-base" disabled>Not Yet Time</button>
           <?php endif; ?>
         </div>
       </div>
@@ -206,12 +219,11 @@ date_default_timezone_set("Africa/Lagos");
 <?php endforeach; ?>
 </div>
 
-</div>
-
 <script>
 function startCountdown(elementId, durationInSeconds) {
   let timer = durationInSeconds;
   const countdownElement = document.getElementById(elementId);
+  if (!countdownElement) return;
 
   const interval = setInterval(() => {
     let hours = Math.floor(timer / 3600);
@@ -219,21 +231,19 @@ function startCountdown(elementId, durationInSeconds) {
     let seconds = timer % 60;
 
     countdownElement.textContent =
-      `${hours.toString().padStart(2, '0')}:` +
-      `${minutes.toString().padStart(2, '0')}:` +
-      `${seconds.toString().padStart(2, '0')}`;
+      `${hours.toString().padStart(2,'0')}:` +
+      `${minutes.toString().padStart(2,'0')}:` +
+      `${seconds.toString().padStart(2,'0')}`;
 
     if (--timer < 0) {
       clearInterval(interval);
       countdownElement.textContent = "Time's up!";
+      // Optionally refresh the page to show "Take Exam" button
+      location.reload();
     }
   }, 1000);
 }
 </script>
-
-  </div>
-</div>
-
 
 <script src="../dist/assets/js/plugins/simplebar.min.js"></script>
 <script src="../dist/assets/js/plugins/popper.min.js"></script>

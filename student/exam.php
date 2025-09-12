@@ -1,3 +1,55 @@
+<?php
+include "../include/server.php";
+if (session_status() === PHP_SESSION_NONE) session_start();
+
+// ✅ Ensure logged in
+if (!isset($_SESSION['regno'])) {
+    header("Location: ../logout.php");
+    exit();
+}
+
+// ✅ Student info
+$regno = $_SESSION['regno'];
+$studentQ = $dbcon->prepare("SELECT id, fullname FROM student WHERE regno = ? LIMIT 1");
+$studentQ->bind_param("s", $regno);
+$studentQ->execute();
+$student = $studentQ->get_result()->fetch_assoc();
+$student_id = $student['id'] ?? 0;
+
+// ✅ Exam Params
+$exam_schedule = $_GET['exam_schedule'] ?? '';
+$course_code   = $_GET['course_code'] ?? '';
+$level_id      = $_GET['level'] ?? '';
+
+// ✅ Fetch course_id & course_title
+$courseQ = $dbcon->prepare("SELECT id, course_title FROM course WHERE course_code = ? LIMIT 1");
+$courseQ->bind_param("s", $course_code);
+$courseQ->execute();
+$course = $courseQ->get_result()->fetch_assoc();
+$course_id = $course['id'] ?? 0;
+$course_title = $course['course_title'] ?? '';
+
+// ✅ Fetch Questions + Answers
+$sql = "SELECT q.id AS question_id, q.question_text, q.exam_time, 
+               a.opt_a, a.opt_b, a.opt_c, a.opt_d
+        FROM questions q
+        JOIN answer a ON q.id = a.question_id
+        WHERE q.exam_schedule = ? AND q.course_id = ? AND q.level_id = ?";
+$stmt = $dbcon->prepare($sql);
+$stmt->bind_param("sii", $exam_schedule, $course_id, $level_id);
+$stmt->execute();
+$res = $stmt->get_result();
+
+$questions = [];
+$exam_time = 0;
+while ($row = $res->fetch_assoc()) {
+    $questions[] = $row;
+    $exam_time = $row['exam_time']; // same for all questions
+}
+
+// ✅ Encode for JS
+$questions_json = json_encode($questions);
+?>
 <!doctype html>
 <html lang="en">
 <head>
@@ -18,7 +70,6 @@
       transition: all 0.2s ease;
     }
     .option:hover { background: #f1f1f1; }
-    .option input { pointer-events: none; }
     .option.active { 
       border-color: #2563eb; 
       background: #e0f2fe; 
@@ -37,12 +88,12 @@
       <div class="w-full max-w-3xl bg-white shadow-lg rounded-xl p-6 mb-6">
         <div class="flex justify-between items-center">
           <div>
-            <h4 class="font-bold">CSC 201</h4>
-            <p class="text-gray-600">Introduction to Programming</p>
+            <h4 class="font-bold"><?= htmlspecialchars($course_code) ?></h4>
+            <p class="text-gray-600"><?= htmlspecialchars($course_title) ?></p>
           </div>
           <div class="text-right">
             <i class="bi bi-clock-history text-primary"></i>
-            <span id="exam-timer" class="font-bold text-lg">01:30:00</span>
+            <span id="exam-timer" class="font-bold text-lg">00:00:00</span>
           </div>
         </div>
       </div>
@@ -50,18 +101,16 @@
       <!-- Question Box -->
       <div class="w-full max-w-3xl bg-white shadow-lg rounded-xl p-6 question-card">
         <div id="question-text" class="mb-4 font-medium text-lg">
-          Question text will appear here...
+          Loading question...
         </div>
 
-        <div id="options" class="space-y-3">
-          <!-- Options will be loaded here dynamically -->
-        </div>
+        <div id="options" class="space-y-3"></div>
       </div>
 
       <!-- Footer Navigation -->
       <div class="w-full max-w-3xl bg-white shadow-lg rounded-xl p-4 mt-4 flex justify-between items-center">
         <button id="prev-btn" class="btn btn-secondary px-4 py-2" disabled>Previous</button>
-        <span id="progress" class="font-medium">1 out of 10</span>
+        <span id="progress" class="font-medium">0 out of 0</span>
         <button id="next-btn" class="btn btn-primary px-4 py-2">Next</button>
       </div>
 
@@ -69,62 +118,39 @@
   </div>
 
   <script>
-    // Example Questions
-    const questions = [
-      {
-        text: "What does HTML stand for?",
-        options: [
-          "Hyper Text Markup Language", 
-          "High Text Machine Language", 
-          "Hyper Tabular Markup Language", 
-          "None of the above"
-        ],
-      },
-      {
-        text: "Which language is used for styling web pages?",
-        options: ["HTML", "JQuery", "CSS", "XML"],
-      },
-      {
-        text: "Which is not a JavaScript Framework?",
-        options: ["Python Script", "JQuery", "Django", "NodeJS"],
-      },
-      {
-        text: "Which is used to connect to a Database?",
-        options: ["PHP", "HTML", "JS", "All of the above"],
-      }
-    ];
-
+    const questions = <?= $questions_json ?>;
+    const examTimeInSeconds = <?= intval($exam_time) ?> * 60;
+    const studentId = <?= intval($student_id) ?>;
     let currentQuestion = 0;
-    let answers = {};
+    let answers = {}; // {question_id: chosen_option}
 
     const optionLabels = ["A", "B", "C", "D"];
 
     function loadQuestion() {
       const q = questions[currentQuestion];
-      document.getElementById("question-text").innerText = q.text;
+      document.getElementById("question-text").innerText = q.question_text;
       document.getElementById("progress").innerText = 
         (currentQuestion + 1) + " out of " + questions.length;
 
       const optionsDiv = document.getElementById("options");
       optionsDiv.innerHTML = "";
-      q.options.forEach((opt, i) => {
+      const opts = [q.opt_a, q.opt_b, q.opt_c, q.opt_d];
+      opts.forEach((opt, i) => {
         const div = document.createElement("label");
         div.classList.add("option");
-        if (answers[currentQuestion] == i) {
-          div.classList.add("active"); // highlight if previously selected
-        }
+        const chosen = answers[q.question_id] == i;
+        if (chosen) div.classList.add("active");
         div.innerHTML = `
-          <input type="radio" name="option" value="${i}" ${answers[currentQuestion] == i ? "checked" : ""}>
+          <input type="radio" name="option" value="${i}" ${chosen ? "checked" : ""}>
           <strong>${optionLabels[i]}.</strong> ${opt}
         `;
         div.addEventListener("click", () => {
-          answers[currentQuestion] = i;
-          loadQuestion(); // refresh UI and keep active highlight
+          answers[q.question_id] = i;
+          loadQuestion();
         });
         optionsDiv.appendChild(div);
       });
 
-      // Button states
       document.getElementById("prev-btn").disabled = currentQuestion === 0;
       document.getElementById("next-btn").innerText = 
         currentQuestion === questions.length - 1 ? "Submit" : "Next";
@@ -142,43 +168,60 @@
         currentQuestion++;
         loadQuestion();
       } else {
-        alert("Exam submitted!"); // Replace with real submit action
+        submitExam();
       }
     });
 
-    loadQuestion();
+    // function submitExam() {
+    //   fetch("submit_exam.php", {
+    //     method: "POST",
+    //     headers: {"Content-Type": "application/json"},
+    //     body: JSON.stringify({
+    //       student_id: studentId,
+    //       answers: answers
+    //     })
+    //   })
+    //   .then(res => res.json())
+    //   .then(data => {
+    //     alert("Exam submitted successfully!");
+    //     window.location.href = "index.php";
+    //   })
+    //   .catch(err => alert("Error submitting exam: " + err));
+    // }
 
     // Countdown Timer
     function startCountdown(duration, display) {
-      let timer = duration, hours, minutes, seconds;
+      let timer = duration;
       const interval = setInterval(() => {
-        hours = Math.floor(timer / 3600);
-        minutes = Math.floor((timer % 3600) / 60);
-        seconds = timer % 60;
+        let hours = Math.floor(timer / 3600);
+        let minutes = Math.floor((timer % 3600) / 60);
+        let seconds = timer % 60;
 
-        display.textContent = 
+        display.textContent =
           (hours < 10 ? "0" + hours : hours) + ":" +
           (minutes < 10 ? "0" + minutes : minutes) + ":" +
           (seconds < 10 ? "0" + seconds : seconds);
 
         if (--timer < 0) {
           clearInterval(interval);
-          alert("Time is up! Exam submitted automatically.");
+          submitExam();
         }
       }, 1000);
     }
 
     window.onload = function () {
-      const examTimeInSeconds = 90 * 60; // 1 hour 30 minutes
-      const display = document.getElementById("exam-timer");
-      startCountdown(examTimeInSeconds, display);
+      if (questions.length > 0) {
+        loadQuestion();
+        const display = document.getElementById("exam-timer");
+        startCountdown(examTimeInSeconds, display);
+      } else {
+        document.getElementById("question-text").innerText = "No questions available.";
+      }
     };
 
-    // Detect tab switch or minimize
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) {
-        alert("Switching tabs, minimizing, or leaving the page will result in automatic submission!");
-        // Optionally auto-submit: document.getElementById("next-btn").click();
+        submitExam();
       }
     });
   </script>
