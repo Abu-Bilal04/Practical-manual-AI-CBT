@@ -244,6 +244,31 @@ function startCountdown(elementId, durationInSeconds) {
   }, 1000);
 }
 </script>
+<script>
+// Fully prevent browser back navigation
+(function () {
+    // Push initial state
+    history.pushState(null, null, location.href);
+
+    // Trap any back/forward attempts
+    window.onpopstate = function () {
+        history.go(1);
+    };
+
+    // Optional: disable right-click + refresh shortcuts (F5, Ctrl+R)
+    document.addEventListener("keydown", function (e) {
+        if ((e.ctrlKey && e.key === "r") || e.key === "F5") {
+            e.preventDefault();
+            e.stopPropagation();
+            alert("Refreshing is disabled during the exam.");
+        }
+    });
+
+    document.addEventListener("contextmenu", function (e) {
+        e.preventDefault();
+    });
+})();
+</script>
 
 <script src="../dist/assets/js/plugins/simplebar.min.js"></script>
 <script src="../dist/assets/js/plugins/popper.min.js"></script>

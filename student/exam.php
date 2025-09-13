@@ -2,6 +2,54 @@
 include "../include/server.php";
 if (session_status() === PHP_SESSION_NONE) session_start();
 
+// ✅ Handle AJAX submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    header("Content-Type: application/json");
+
+    $data = json_decode(file_get_contents("php://input"), true);
+    if (!$data) {
+        echo json_encode(["success" => false, "message" => "Invalid request."]);
+        exit();
+    }
+
+    $student_id = intval($data['student_id'] ?? 0);
+    $answers = $data['answers'] ?? [];
+
+    if ($student_id <= 0 || empty($answers)) {
+        echo json_encode(["success" => false, "message" => "Missing data."]);
+        exit();
+    }
+
+    // ✅ Save each answer
+    foreach ($answers as $question_id => $chosen_option) {
+        $question_id = intval($question_id);
+        $chosen_option = intval($chosen_option);
+
+        // Get correct option
+        $stmt = $dbcon->prepare("SELECT correct_option FROM answer WHERE question_id = ? LIMIT 1");
+        $stmt->bind_param("i", $question_id);
+        $stmt->execute();
+        $stmt->bind_result($correct_option);
+        $stmt->fetch();
+        $stmt->close();
+
+        $is_correct = ($correct_option == $chosen_option) ? 1 : 0;
+
+        // Insert or update student answer
+        $stmt = $dbcon->prepare("
+            INSERT INTO student_answers (student_id, question_id, chosen_option, is_correct, created_at)
+            VALUES (?, ?, ?, ?, NOW())
+            ON DUPLICATE KEY UPDATE chosen_option = VALUES(chosen_option), is_correct = VALUES(is_correct), created_at = NOW()
+        ");
+        $stmt->bind_param("iiii", $student_id, $question_id, $chosen_option, $is_correct);
+        $stmt->execute();
+        $stmt->close();
+    }
+
+    echo json_encode(["success" => true, "message" => "Exam submitted successfully"]);
+    exit();
+}
+
 // ✅ Ensure logged in
 if (!isset($_SESSION['regno'])) {
     header("Location: ../logout.php");
@@ -21,7 +69,7 @@ $exam_schedule = $_GET['exam_schedule'] ?? '';
 $course_code   = $_GET['course_code'] ?? '';
 $level_id      = $_GET['level'] ?? '';
 
-// ✅ Fetch course_id & course_title
+// ✅ Fetch course info
 $courseQ = $dbcon->prepare("SELECT id, course_title FROM course WHERE course_code = ? LIMIT 1");
 $courseQ->bind_param("s", $course_code);
 $courseQ->execute();
@@ -103,7 +151,6 @@ $questions_json = json_encode($questions);
         <div id="question-text" class="mb-4 font-medium text-lg">
           Loading question...
         </div>
-
         <div id="options" class="space-y-3"></div>
       </div>
 
@@ -122,15 +169,15 @@ $questions_json = json_encode($questions);
     const examTimeInSeconds = <?= intval($exam_time) ?> * 60;
     const studentId = <?= intval($student_id) ?>;
     let currentQuestion = 0;
-    let answers = {}; // {question_id: chosen_option}
+    let answers = {}; 
+    let examSubmitted = false;
 
     const optionLabels = ["A", "B", "C", "D"];
 
     function loadQuestion() {
       const q = questions[currentQuestion];
       document.getElementById("question-text").innerText = q.question_text;
-      document.getElementById("progress").innerText = 
-        (currentQuestion + 1) + " out of " + questions.length;
+      document.getElementById("progress").innerText = (currentQuestion + 1) + " out of " + questions.length;
 
       const optionsDiv = document.getElementById("options");
       optionsDiv.innerHTML = "";
@@ -140,10 +187,7 @@ $questions_json = json_encode($questions);
         div.classList.add("option");
         const chosen = answers[q.question_id] == i;
         if (chosen) div.classList.add("active");
-        div.innerHTML = `
-          <input type="radio" name="option" value="${i}" ${chosen ? "checked" : ""}>
-          <strong>${optionLabels[i]}.</strong> ${opt}
-        `;
+        div.innerHTML = `<input type="radio" name="option" value="${i}" ${chosen ? "checked" : ""}><strong>${optionLabels[i]}.</strong> ${opt}`;
         div.addEventListener("click", () => {
           answers[q.question_id] = i;
           loadQuestion();
@@ -152,8 +196,7 @@ $questions_json = json_encode($questions);
       });
 
       document.getElementById("prev-btn").disabled = currentQuestion === 0;
-      document.getElementById("next-btn").innerText = 
-        currentQuestion === questions.length - 1 ? "Submit" : "Next";
+      document.getElementById("next-btn").innerText = currentQuestion === questions.length - 1 ? "Submit" : "Next";
     }
 
     document.getElementById("prev-btn").addEventListener("click", () => {
@@ -172,27 +215,44 @@ $questions_json = json_encode($questions);
       }
     });
 
-    // function submitExam() {
-    //   fetch("submit_exam.php", {
-    //     method: "POST",
-    //     headers: {"Content-Type": "application/json"},
-    //     body: JSON.stringify({
-    //       student_id: studentId,
-    //       answers: answers
-    //     })
-    //   })
-    //   .then(res => res.json())
-    //   .then(data => {
-    //     alert("Exam submitted successfully!");
-    //     window.location.href = "index.php";
-    //   })
-    //   .catch(err => alert("Error submitting exam: " + err));
-    // }
+    // ✅ Submit exam
+    function submitExam() {
+      if (examSubmitted) return;
+      examSubmitted = true;
+
+      fetch("exam.php", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          student_id: studentId,
+          answers: answers
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          alert("✅ Exam submitted successfully!");
+          window.location.href = "index.php";
+        } else {
+          alert("❌ Error: " + data.message);
+          examSubmitted = false; // allow retry
+        }
+      })
+      .catch(err => {
+        alert("Error submitting exam: " + err);
+        examSubmitted = false; // allow retry
+      });
+    }
 
     // Countdown Timer
     function startCountdown(duration, display) {
       let timer = duration;
       const interval = setInterval(() => {
+        if (examSubmitted) {
+          clearInterval(interval);
+          return;
+        }
+
         let hours = Math.floor(timer / 3600);
         let minutes = Math.floor((timer % 3600) / 60);
         let seconds = timer % 60;
@@ -218,12 +278,6 @@ $questions_json = json_encode($questions);
         document.getElementById("question-text").innerText = "No questions available.";
       }
     };
-
-    document.addEventListener("visibilitychange", () => {
-      if (document.hidden) {
-        submitExam();
-      }
-    });
   </script>
 
 </body>
