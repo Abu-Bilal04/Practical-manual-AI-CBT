@@ -2,54 +2,6 @@
 include "../include/server.php";
 if (session_status() === PHP_SESSION_NONE) session_start();
 
-// ✅ Handle AJAX submission
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    header("Content-Type: application/json");
-
-    $data = json_decode(file_get_contents("php://input"), true);
-    if (!$data) {
-        echo json_encode(["success" => false, "message" => "Invalid request."]);
-        exit();
-    }
-
-    $student_id = intval($data['student_id'] ?? 0);
-    $answers = $data['answers'] ?? [];
-
-    if ($student_id <= 0 || empty($answers)) {
-        echo json_encode(["success" => false, "message" => "Missing data."]);
-        exit();
-    }
-
-    // ✅ Save each answer
-    foreach ($answers as $question_id => $chosen_option) {
-        $question_id = intval($question_id);
-        $chosen_option = intval($chosen_option);
-
-        // Get correct option
-        $stmt = $dbcon->prepare("SELECT correct_option FROM answer WHERE question_id = ? LIMIT 1");
-        $stmt->bind_param("i", $question_id);
-        $stmt->execute();
-        $stmt->bind_result($correct_option);
-        $stmt->fetch();
-        $stmt->close();
-
-        $is_correct = ($correct_option == $chosen_option) ? 1 : 0;
-
-        // Insert or update student answer
-        $stmt = $dbcon->prepare("
-            INSERT INTO student_answers (student_id, question_id, chosen_option, is_correct, created_at)
-            VALUES (?, ?, ?, ?, NOW())
-            ON DUPLICATE KEY UPDATE chosen_option = VALUES(chosen_option), is_correct = VALUES(is_correct), created_at = NOW()
-        ");
-        $stmt->bind_param("iiii", $student_id, $question_id, $chosen_option, $is_correct);
-        $stmt->execute();
-        $stmt->close();
-    }
-
-    echo json_encode(["success" => true, "message" => "Exam submitted successfully"]);
-    exit();
-}
-
 // ✅ Ensure logged in
 if (!isset($_SESSION['regno'])) {
     header("Location: ../logout.php");
@@ -68,6 +20,18 @@ $student_id = $student['id'] ?? 0;
 $exam_schedule = $_GET['exam_schedule'] ?? '';
 $course_code   = $_GET['course_code'] ?? '';
 $level_id      = $_GET['level'] ?? '';
+
+// Convert to DateTime
+date_default_timezone_set("Africa/Lagos");
+$exam_start = new DateTime($exam_schedule);
+$exam_end   = clone $exam_start;
+$exam_end->modify("+2 hours");
+
+// Server-side validation: if current time > exam_end, redirect immediately
+if (new DateTime() > $exam_end) {
+    header("Location: index.php?msg=exam_expired");
+    exit();
+}
 
 // ✅ Fetch course info
 $courseQ = $dbcon->prepare("SELECT id, course_title FROM course WHERE course_code = ? LIMIT 1");
@@ -97,6 +61,9 @@ while ($row = $res->fetch_assoc()) {
 
 // ✅ Encode for JS
 $questions_json = json_encode($questions);
+
+// Pass exam_end timestamp to JS
+$exam_end_ts = $exam_end->getTimestamp();
 ?>
 <!doctype html>
 <html lang="en">
@@ -168,6 +135,8 @@ $questions_json = json_encode($questions);
     const questions = <?= $questions_json ?>;
     const examTimeInSeconds = <?= intval($exam_time) ?> * 60;
     const studentId = <?= intval($student_id) ?>;
+    const examEndTimestamp = <?= $exam_end_ts ?> * 1000; // milliseconds
+
     let currentQuestion = 0;
     let answers = {}; 
     let examSubmitted = false;
@@ -266,6 +235,15 @@ $questions_json = json_encode($questions);
           clearInterval(interval);
           submitExam();
         }
+
+        // ✅ Extra check: if current time > exam_end, force exit
+        const now = Date.now();
+        if (now > examEndTimestamp) {
+          clearInterval(interval);
+          alert("⏰ Exam time expired!");
+          window.location.href = "index.php?msg=exam_expired";
+        }
+
       }, 1000);
     }
 
