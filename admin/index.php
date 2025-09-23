@@ -128,12 +128,12 @@ $userusername = $_SESSION['username'];
               </ul>
             </li>
 
-            <!-- <li class="pc-item pc-hasmenu">
+            <li class="pc-item pc-hasmenu">
               <a href="results.php" class="pc-link">
                 <span class="pc-micon"> <i class="bi bi-clipboard-data"></i></span>
                 <span class="pc-mtext">Results</span>
               </a>
-            </li> -->
+            </li>
 
   
       </ul>
@@ -269,7 +269,14 @@ $userusername = $_SESSION['username'];
                 <div class="flex items-center justify-between gap-3 flex-wrap">
                   <h3 class="font-light flex items-center mb-0">
                     <i class="feather icon-arrow-up text-success-500 text-[30px] mr-1.5"></i>
-                    43
+                    <?php
+                    // Fetch total manuals (grouped by exam_schedule)
+                    $sql_manuals = "SELECT COUNT(DISTINCT exam_schedule) AS total_manuals FROM questions";
+                    $res_manuals = mysqli_query($dbcon, $sql_manuals);
+                    $row_manuals = mysqli_fetch_assoc($res_manuals);
+                    $total_manuals = $row_manuals['total_manuals'] ?? 0;
+                    echo $total_manuals;
+                    ?>
                   </h3>
                 </div>
                 
@@ -285,7 +292,14 @@ $userusername = $_SESSION['username'];
                 <div class="flex items-center justify-between gap-3 flex-wrap">
                   <h3 class="font-light flex items-center mb-0">
                     <i class="feather icon-arrow-down text-danger-500 text-[30px] mr-1.5"></i>
-                    676
+                    <?php
+                    // Fetch total student (grouped by exam_schedule)
+                    $sql_student = "SELECT COUNT(*) AS total_student FROM student";
+                    $res_student = mysqli_query($dbcon, $sql_student);
+                    $row_student = mysqli_fetch_assoc($res_student);
+                    $total_student = $row_student['total_student'] ?? 0;
+                    echo $total_student;
+                    ?>
                   </h3>
                   
                 </div>
@@ -296,13 +310,20 @@ $userusername = $_SESSION['username'];
           <div class="col-span-12 xl:col-span-3 md:col-span-6">
             <div class="card">
               <div class="card-header !pb-0 !border-b-0">
-                <h5>Total Departments</h5>
+                <h5>Total Courses</h5>
               </div>
               <div class="card-body">
                 <div class="flex items-center justify-between gap-3 flex-wrap">
                   <h3 class="font-light flex items-center mb-0">
                     <i class="feather icon-arrow-down text-danger-500 text-[30px] mr-1.5"></i>
-                    676
+                    <?php
+                    // Fetch total course (grouped by exam_schedule)
+                    $sql_course = "SELECT COUNT(*) AS total_course FROM course";
+                    $res_course = mysqli_query($dbcon, $sql_course);
+                    $row_course = mysqli_fetch_assoc($res_course);
+                    $total_course = $row_course['total_course'] ?? 0;
+                    echo $total_course;
+                    ?>
                   </h3>
                   
                 </div>
@@ -319,208 +340,18 @@ $userusername = $_SESSION['username'];
                 <div class="flex items-center justify-between gap-3 flex-wrap">
                   <h3 class="font-light flex items-center mb-0">
                     <i class="feather icon-arrow-down text-danger-500 text-[30px] mr-1.5"></i>
-                    676
+                    <?php
+                    // Fetch total level (grouped by exam_schedule)
+                    $sql_level = "SELECT COUNT(*) AS total_level FROM level";
+                    $res_level = mysqli_query($dbcon, $sql_level);
+                    $row_level = mysqli_fetch_assoc($res_level);
+                    $total_level = $row_level['total_level'] ?? 0;
+                    echo $total_level;
+                    ?>
                   </h3>
                   
                 </div>
                 
-              </div>
-            </div>
-          </div>
-          <div class="col-span-12 xl:col-span-8 md:col-span-6">
-            <div class="card table-card">
-              <div class="card-header">
-                <h5>Pending Submissions</h5>
-              </div>
-              <div class="card-body">
-                <div class="table-responsive">
-                  <table class="table table-hover">
-                    <tbody>
-                      <tr class="unread">
-                        <td>
-                          <img class="rounded-full max-w-10" style="width: 40px" src="../dist/assets/images/user/avatar-1.jpg" alt="activity-user" />
-                        </td>
-                        <td>
-                          <h6 class="mb-1">Isabella Christensen</h6>
-                          <p>Science Lab. Tech.</p>
-                          
-                        </td>
-                        <td>
-                          <h6 class="text-muted">
-                            <i class="fas fa-circle text-success text-[10px] ltr:mr-4 rtl:ml-4"></i>
-                            11 MAY 12:56
-                          </h6>
-                        </td>
-                        <td>
-                          <a href="#!" class="badge bg-theme-bg-2 text-white text-[12px] mx-2">View</a>
-                          <!-- <a href="#!" class="badge text-white text-[12px] mx-2" style="background-color: red;">Reject</a>
-                          <a href="#!" class="badge bg-theme-bg-1 text-white text-[12px]">Approve</a> -->
-                        </td>
-                      </tr>
-                      <tr class="unread">
-                        <td>
-                          <img class="rounded-full max-w-10" style="width: 40px" src="../dist/assets/images/user/avatar-2.jpg" alt="activity-user" />
-                        </td>
-                        <td>
-                          <h6 class="mb-1">Mathilde Andersen</h6>
-                          <p>Computer Science</p>
-                        </td>
-                        <td>
-                          <h6 class="text-muted">
-                            <i class="fas fa-circle text-danger text-[10px] ltr:mr-4 rtl:ml-4"></i>
-                            11 MAY 10:35
-                          </h6>
-                        </td>
-                        <td>
-                          <a href="#!" class="badge bg-theme-bg-2 text-white text-[12px] mx-2">View</a>
-                          <!-- <a href="#!" class="badge text-white text-[12px] mx-2" style="background-color: red;">Reject</a>
-                          <a href="#!" class="badge bg-theme-bg-1 text-white text-[12px]">Approve</a> -->
-                        </td>
-                      </tr>
-                      <tr class="unread">
-                        <td>
-                          <img class="rounded-full max-w-10" style="width: 40px" src="../dist/assets/images/user/avatar-3.jpg" alt="activity-user" />
-                        </td>
-                        <td>
-                          <h6 class="mb-1">Karla Sorensen</h6>
-                          <p>Computer Science</p>                          
-                        </td>
-                        <td>
-                          <h6 class="text-muted">
-                            <i class="fas fa-circle text-success text-[10px] ltr:mr-4 rtl:ml-4"></i>
-                            9 MAY 17:38
-                          </h6>
-                        </td>
-                        <td>
-                          <a href="#!" class="badge bg-theme-bg-2 text-white text-[12px] mx-2">View</a>
-                          <!-- <a href="#!" class="badge text-white text-[12px] mx-2" style="background-color: red;">Reject</a>
-                          <a href="#!" class="badge bg-theme-bg-1 text-white text-[12px]">Approve</a> -->
-                        </td>
-                      </tr>
-                      <tr class="unread">
-                        <td>
-                          <img class="rounded-full max-w-10" style="width: 40px" src="../dist/assets/images/user/avatar-1.jpg" alt="activity-user" />
-                        </td>
-                        <td>
-                          <h6 class="mb-1">Ida Jorgensen</h6>
-                          <p>Polymer And Textile</p>
-
-                        </td>
-                        <td>
-                          <h6 class="text-muted f-w-300">
-                            <i class="fas fa-circle text-danger text-[10px] ltr:mr-4 rtl:ml-4"></i>
-                            19 MAY 12:56
-                          </h6>
-                        </td>
-                        <td>
-                          <a href="#!" class="badge bg-theme-bg-2 text-white text-[12px] mx-2">View</a>
-                          <!-- <a href="#!" class="badge text-white text-[12px] mx-2" style="background-color: red;">Reject</a>
-                          <a href="#!" class="badge bg-theme-bg-1 text-white text-[12px]">Approve</a> -->
-                        </td>
-                      </tr>
-                      <tr class="unread">
-                        <td>
-                          <img class="rounded-full max-w-10" style="width: 40px" src="../dist/assets/images/user/avatar-2.jpg" alt="activity-user" />
-                        </td>
-                        <td>
-                          <h6 class="mb-1">Albert Andersen</h6>
-                          <p>Leather Prod.</p>
-                        </td>
-                        <td>
-                          <h6 class="text-muted">
-                            <i class="fas fa-circle text-success text-[10px] ltr:mr-4 rtl:ml-4"></i>
-                            21 July 12:56
-                          </h6>
-                        </td>
-                        <td>
-                          <a href="#!" class="badge bg-theme-bg-2 text-white text-[12px] mx-2">View</a>
-                          <!-- <a href="#!" class="badge text-white text-[12px] mx-2" style="background-color: red;">Reject</a>
-                          <a href="#!" class="badge bg-theme-bg-1 text-white text-[12px]">Approve</a> -->
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="col-span-12 xl:col-span-4 md:col-span-6">
-            <div class="card user-list">
-              <div class="card-header">
-                <h5><i class="bi bi-"></i>Submission Percentage (%)</h5>
-              </div>
-              <div class="card-body">
-                <div class="flex items-center justify-between gap-1 mb-5">
-                  <h4 class="font-light flex items-center m-0">
-                    Departments
-                    <i class="fas fa-star text-[10px] ml-2.5 text-warning-500"></i>
-                  </h4>
-                  <h6 class="flex items-center m-0">
-                    <b>34%</b>
-                    <i class="fas fa-caret-up text-success text-[22px] ml-2.5"></i>
-                  </h6>
-                </div>
-
-                <div class="flex items-center justify-between gap-2 mb-2">
-                  <h6 class="flex items-center gap-1">
-                    <i class="fas fa-star text-[10px] mr-2.5 text-warning-500"></i>
-                    Computer Science
-                  </h6>
-                  <h6>74%</h6>
-                </div>
-                <div class="w-full bg-theme-bodybg rounded-lg h-1.5 mb-6 mt-3 dark:bg-themedark-bodybg">
-                  <div
-                    class="bg-theme-bg-1 h-full rounded-lg shadow-[0_10px_20px_0_rgba(0,0,0,0.3)]"
-                    role="progressbar"
-                    style="width: 70%"
-                  ></div>
-                </div>
-
-                <div class="flex items-center justify-between gap-2 mb-2">
-                  <h6 class="flex items-center gap-1">
-                    <i class="fas fa-star text-[10px] mr-2.5 text-warning-500"></i>
-                    Leather Prod.
-                  </h6>
-                  <h6>38%</h6>
-                </div>
-                <div class="w-full bg-theme-bodybg rounded-lg h-1.5 mb-6 mt-3 dark:bg-themedark-bodybg">
-                  <div
-                    class="bg-theme-bg-1 h-full rounded-lg shadow-[0_10px_20px_0_rgba(0,0,0,0.3)]"
-                    role="progressbar"
-                    style="width: 35%"
-                  ></div>
-                </div>
-
-                <div class="flex items-center justify-between gap-2 mb-2">
-                  <h6 class="flex items-center gap-1">
-                    <i class="fas fa-star text-[10px] mr-2.5 text-warning-500"></i>
-                    Polymer And Textile
-                  </h6>
-                  <h6>24%</h6>
-                </div>
-                <div class="w-full bg-theme-bodybg rounded-lg h-1.5 mb-6 mt-3 dark:bg-themedark-bodybg">
-                  <div
-                    class="bg-theme-bg-1 h-full rounded-lg shadow-[0_10px_20px_0_rgba(0,0,0,0.3)]"
-                    role="progressbar"
-                    style="width: 25%"
-                  ></div>
-                </div>
-
-                <div class="flex items-center justify-between gap-2 mb-2">
-                  <h6 class="flex items-center gap-1">
-                    <i class="fas fa-star text-[10px] mr-2.5 text-warning-500"></i>
-                    Science Lab. Tech.
-                  </h6>
-                  <h6>8%</h6>
-                </div>
-                <div class="w-full bg-theme-bodybg rounded-lg h-1.5 mb-6 mt-3 dark:bg-themedark-bodybg">
-                  <div
-                    class="bg-theme-bg-1 h-full rounded-lg shadow-[0_10px_20px_0_rgba(0,0,0,0.3)]"
-                    role="progressbar"
-                    style="width: 10%"
-                  ></div>
-                </div>
-
               </div>
             </div>
           </div>
