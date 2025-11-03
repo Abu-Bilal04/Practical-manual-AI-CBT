@@ -120,12 +120,12 @@ $userusername = $_SESSION['username'];
               </ul>
             </li>
 
-            <!-- <li class="pc-item pc-hasmenu">
+            <li class="pc-item pc-hasmenu">
               <a href="results.php" class="pc-link">
                 <span class="pc-micon"> <i class="bi bi-clipboard-data"></i></span>
                 <span class="pc-mtext">Results</span>
               </a>
-            </li> -->
+            </li>
 
   
       </ul>
@@ -282,7 +282,6 @@ $userusername = $_SESSION['username'];
                       <th>Fullname</th>
                       <th>Regno</th>
                       <th>Level</th>
-                      <th>View</th>
                     </thead>
                     <tbody>
                       <?php
@@ -306,7 +305,6 @@ $userusername = $_SESSION['username'];
                                 echo "  <td>" . htmlspecialchars($row['fullname']) . "</td>";
                                 echo "  <td>" . htmlspecialchars($row['regno']) . "</td>";
                                 echo "  <td>" . htmlspecialchars($row['level']) . "</td>";
-                                echo "  <td><a href='view/view_student.php?id={$row['id']}' class='btn btn-primary btn-sm'>View</a></td>";
                                 echo "</tr>";
                                 $sn++;
                             }
