@@ -16,7 +16,7 @@ if (isset($_POST['login'])) {
           echo "<script>window.open('index.php','_self')</script>";
         }else{
          echo "<script>window.open('login.php?msg=error','_self')</script>";
-      } 
+      }  
 }
 
 //for session
@@ -145,4 +145,7 @@ if (isset($_POST['student_login'])) {
       } 
 }
 
+
 ?>
+
+
