@@ -2,261 +2,221 @@
 include "../include/server.php";
 if (session_status() === PHP_SESSION_NONE) session_start();
 
-// ✅ Ensure logged in
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+// Ensure student is logged in
 if (!isset($_SESSION['regno'])) {
     header("Location: ../logout.php");
     exit();
 }
 
-// ✅ Student info
 $regno = $_SESSION['regno'];
+
+// Fetch student info
 $studentQ = $dbcon->prepare("SELECT id, fullname FROM student WHERE regno = ? LIMIT 1");
 $studentQ->bind_param("s", $regno);
 $studentQ->execute();
-$student = $studentQ->get_result()->fetch_assoc();
-$student_id = $student['id'] ?? 0;
+$studentRes = $studentQ->get_result();
+if ($studentRes->num_rows === 0) {
+    die("Student not found.");
+}
+$student = $studentRes->fetch_assoc();
+$student_id = (int)$student['id'];
 
-// ✅ Exam Params
-$exam_schedule = $_GET['exam_schedule'] ?? '';
-$course_code   = $_GET['course_code'] ?? '';
-$level_id      = $_GET['level'] ?? '';
+// Exam parameters
+$exam_schedule = isset($_GET['exam_schedule']) ? trim($_GET['exam_schedule']) : '';
+$course_code   = isset($_GET['course_code']) ? trim($_GET['course_code']) : '';
+$level_id      = isset($_GET['level']) ? intval($_GET['level']) : 0;
 
-// Convert to DateTime
+if (empty($exam_schedule) || empty($course_code) || $level_id <= 0) {
+    die("Missing exam parameters.");
+}
+
+// Setup exam start & end time
 date_default_timezone_set("Africa/Lagos");
 $exam_start = new DateTime($exam_schedule);
-$exam_end   = clone $exam_start;
+$exam_end = clone $exam_start;
 $exam_end->modify("+2 hours");
+$exam_end_ts = $exam_end->getTimestamp();
 
-// Server-side validation: if current time > exam_end, redirect immediately
+// If time expired → redirect
 if (new DateTime() > $exam_end) {
-    header("Location: index.php?msg=exam_expired");
+    echo "<script>alert('Exam time expired.'); window.location='index.php';</script>";
     exit();
 }
 
-// ✅ Fetch course info
+// Get course info
 $courseQ = $dbcon->prepare("SELECT id, course_title FROM course WHERE course_code = ? LIMIT 1");
 $courseQ->bind_param("s", $course_code);
 $courseQ->execute();
-$course = $courseQ->get_result()->fetch_assoc();
-$course_id = $course['id'] ?? 0;
-$course_title = $course['course_title'] ?? '';
+$courseRes = $courseQ->get_result();
+if ($courseRes->num_rows === 0) {
+    die("Course not found.");
+}
+$course = $courseRes->fetch_assoc();
+$course_id = (int)$course['id'];
+$course_title = $course['course_title'];
 
-// ✅ Fetch Questions + Answers
-$sql = "SELECT q.id AS question_id, q.question_text, q.exam_time, 
-               a.opt_a, a.opt_b, a.opt_c, a.opt_d
-        FROM questions q
-        JOIN answer a ON q.id = a.question_id
-        WHERE q.exam_schedule = ? AND q.course_id = ? AND q.level_id = ?";
-$stmt = $dbcon->prepare($sql);
-$stmt->bind_param("sii", $exam_schedule, $course_id, $level_id);
-$stmt->execute();
-$res = $stmt->get_result();
+// Prevent retake
+$checkQ = $dbcon->prepare("SELECT id FROM exam_results WHERE student_id = ? AND course_id = ? LIMIT 1");
+$checkQ->bind_param("ii", $student_id, $course_id);
+$checkQ->execute();
+if ($checkQ->get_result()->num_rows > 0) {
+    echo "<script>alert('You already took this exam.'); window.location='index.php';</script>";
+    exit();
+}
+
+// Fetch questions and answers
+$q_stmt = $dbcon->prepare("
+    SELECT q.id AS question_id, q.question_text, q.exam_time,
+           a.opt_a, a.opt_b, a.opt_c, a.opt_d, a.correct_option
+    FROM questions q
+    JOIN answer a ON q.id = a.question_id
+    WHERE q.exam_schedule = ? AND q.course_id = ? AND q.level_id = ?
+    ORDER BY q.id ASC
+");
+$q_stmt->bind_param("sii", $exam_schedule, $course_id, $level_id);
+$q_stmt->execute();
+$q_res = $q_stmt->get_result();
 
 $questions = [];
 $exam_time = 0;
-while ($row = $res->fetch_assoc()) {
+while ($row = $q_res->fetch_assoc()) {
+    $row['correct_option'] = strtoupper($row['correct_option']);
     $questions[] = $row;
-    $exam_time = $row['exam_time']; // same for all questions
+    $exam_time = $row['exam_time'] ?: $exam_time;
 }
+$total_questions = count($questions);
 
-// ✅ Encode for JS
-$questions_json = json_encode($questions);
+// When submitted
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $answers = $_POST['answers'] ?? [];
+    $correct = 0;
+    foreach ($questions as $q) {
+        $qid = $q['question_id'];
+        $student_choice = strtoupper(trim($answers[$qid] ?? ''));
+        if ($student_choice === $q['correct_option']) $correct++;
+    }
+    $score = $total_questions > 0 ? round(($correct / $total_questions) * 100, 2) : 0.00;
 
-// Pass exam_end timestamp to JS
-$exam_end_ts = $exam_end->getTimestamp();
+    $ins = $dbcon->prepare("
+        INSERT INTO exam_results (student_id, course_id, score, total_questions, correct_answers, exam_date)
+        VALUES (?, ?, ?, ?, ?, NOW())
+    ");
+    $ins->bind_param("iisii", $student_id, $course_id, $score, $total_questions, $correct);
+    if ($ins->execute()) {
+        echo "<script>alert('Exam submitted successfully!'); window.location='index.php';</script>";
+        exit();
+    } else {
+        die('Error saving exam result: ' . $dbcon->error);
+    }
+}
 ?>
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Exam Page || Practical Manual System</title>
-  <link rel="stylesheet" href="../dist/assets/css/style.css" />
-  <link rel="stylesheet" href="../bootstrap-icons/bootstrap-icons.css">
-  <style>
-    .question-card { min-height: 250px; }
-    .option { 
-      border: 1px solid #ccc; 
-      padding: 10px; 
-      border-radius: 6px; 
-      cursor: pointer; 
-      display: flex; 
-      align-items: center; 
-      gap: 10px;
-      transition: all 0.2s ease;
-    }
-    .option:hover { background: #f1f1f1; }
-    .option.active { 
-      border-color: #2563eb; 
-      background: #e0f2fe; 
-      font-weight: bold; 
-      color: #1e3a8a;
-    }
-  </style>
+  <title><?= htmlspecialchars($course_title) ?> Exam</title>
+  <link href="../bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-
 <body class="bg-gray-100">
-
-  <div class="pc-container">
-    <div class="pc-content flex flex-col items-center min-h-screen py-10">
-
-      <!-- Header -->
-      <div class="w-full max-w-3xl bg-white shadow-lg rounded-xl p-6 mb-6">
-        <div class="flex justify-between items-center">
-          <div>
-            <h4 class="font-bold"><?= htmlspecialchars($course_code) ?></h4>
-            <p class="text-gray-600"><?= htmlspecialchars($course_title) ?></p>
-          </div>
-          <div class="text-right">
-            <i class="bi bi-clock-history text-primary"></i>
-            <span id="exam-timer" class="font-bold text-lg">00:00:00</span>
-          </div>
-        </div>
+  <div class="max-w-4xl mx-auto mt-10 bg-white p-6 rounded-2xl shadow-lg">
+    <div class="flex justify-between items-center mb-4">
+      <div>
+        <h2 class="text-xl font-bold"><?= htmlspecialchars($course_title) ?> (<?= htmlspecialchars($course_code) ?>)</h2>
+        <p class="text-gray-500">Student: <?= htmlspecialchars($student['fullname']) ?> (<?= htmlspecialchars($regno) ?>)</p>
       </div>
-
-      <!-- Question Box -->
-      <div class="w-full max-w-3xl bg-white shadow-lg rounded-xl p-6 question-card">
-        <div id="question-text" class="mb-4 font-medium text-lg">
-          Loading question...
-        </div>
-        <div id="options" class="space-y-3"></div>
+      <div class="text-right">
+        <p class="text-sm text-gray-600">Ends: <?= $exam_end->format('H:i') ?></p>
+        <p class="font-bold text-red-500" id="timer">--:--:--</p>
       </div>
-
-      <!-- Footer Navigation -->
-      <div class="w-full max-w-3xl bg-white shadow-lg rounded-xl p-4 mt-4 flex justify-between items-center">
-        <button id="prev-btn" class="btn btn-secondary px-4 py-2" disabled>Previous</button>
-        <span id="progress" class="font-medium">0 out of 0</span>
-        <button id="next-btn" class="btn btn-primary px-4 py-2">Next</button>
-      </div>
-
     </div>
+
+    <?php if ($total_questions === 0): ?>
+      <p>No questions found for this exam.</p>
+    <?php else: ?>
+      <form method="POST" id="examForm">
+        <?php foreach ($questions as $i => $q): ?>
+          <div class="question <?= $i === 0 ? '' : 'hidden' ?>">
+            <h3 class="font-semibold mb-3"><?= ($i+1) . ". " . htmlspecialchars($q['question_text']) ?></h3>
+            <?php foreach (['A','B','C','D'] as $opt): ?>
+              <?php $text = $q['opt_'.strtolower($opt)]; ?>
+              <label class="block border rounded-xl p-3 mb-2 cursor-pointer hover:bg-gray-50">
+                <input type="radio" name="answers[<?= $q['question_id'] ?>]" value="<?= $opt ?>"> 
+                <strong><?= $opt ?>.</strong> <?= htmlspecialchars($text) ?>
+              </label>
+            <?php endforeach; ?>
+          </div>
+        <?php endforeach; ?>
+
+        <div class="flex justify-between items-center mt-6">
+          <button type="button" id="prevBtn" class="px-4 py-2 bg-gray-300 rounded-xl" disabled>Previous</button>
+          <span id="progress">1 / <?= $total_questions ?></span>
+          <button type="button" id="nextBtn" class="px-4 py-2 bg-blue-600 text-white rounded-xl">Next</button>
+        </div>
+      </form>
+    <?php endif; ?>
   </div>
 
   <script>
-    const questions = <?= $questions_json ?>;
-    const examTimeInSeconds = <?= intval($exam_time) ?> * 60;
-    const studentId = <?= intval($student_id) ?>;
-    const examEndTimestamp = <?= $exam_end_ts ?> * 1000; // milliseconds
+  const questions = Array.from(document.querySelectorAll('.question'));
+  let idx = 0;
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const progress = document.getElementById('progress');
+  const form = document.getElementById('examForm');
 
-    let currentQuestion = 0;
-    let answers = {}; 
-    let examSubmitted = false;
+  function show(i){
+    questions.forEach((q, j) => q.classList.toggle('hidden', j !== i));
+    progress.textContent = (i+1) + " / " + questions.length;
+    prevBtn.disabled = (i === 0);
+    nextBtn.textContent = (i === questions.length - 1) ? "Submit" : "Next";
+  }
 
-    const optionLabels = ["A", "B", "C", "D"];
-
-    function loadQuestion() {
-      const q = questions[currentQuestion];
-      document.getElementById("question-text").innerText = q.question_text;
-      document.getElementById("progress").innerText = (currentQuestion + 1) + " out of " + questions.length;
-
-      const optionsDiv = document.getElementById("options");
-      optionsDiv.innerHTML = "";
-      const opts = [q.opt_a, q.opt_b, q.opt_c, q.opt_d];
-      opts.forEach((opt, i) => {
-        const div = document.createElement("label");
-        div.classList.add("option");
-        const chosen = answers[q.question_id] == i;
-        if (chosen) div.classList.add("active");
-        div.innerHTML = `<input type="radio" name="option" value="${i}" ${chosen ? "checked" : ""}><strong>${optionLabels[i]}.</strong> ${opt}`;
-        div.addEventListener("click", () => {
-          answers[q.question_id] = i;
-          loadQuestion();
-        });
-        optionsDiv.appendChild(div);
-      });
-
-      document.getElementById("prev-btn").disabled = currentQuestion === 0;
-      document.getElementById("next-btn").innerText = currentQuestion === questions.length - 1 ? "Submit" : "Next";
+  nextBtn.onclick = () => {
+    if (idx < questions.length - 1) {
+      idx++;
+      show(idx);
+    } else {
+      if (confirm("Submit exam now?")) form.submit();
     }
+  };
 
-    document.getElementById("prev-btn").addEventListener("click", () => {
-      if (currentQuestion > 0) {
-        currentQuestion--;
-        loadQuestion();
-      }
-    });
-
-    document.getElementById("next-btn").addEventListener("click", () => {
-      if (currentQuestion < questions.length - 1) {
-        currentQuestion++;
-        loadQuestion();
-      } else {
-        submitExam();
-      }
-    });
-
-    // ✅ Submit exam
-    function submitExam() {
-      if (examSubmitted) return;
-      examSubmitted = true;
-
-      fetch("exam.php", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-          student_id: studentId,
-          answers: answers
-        })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          alert("✅ Exam submitted successfully!");
-          window.location.href = "index.php";
-        } else {
-          alert("❌ Error: " + data.message);
-          examSubmitted = false; // allow retry
-        }
-      })
-      .catch(err => {
-        alert("Error submitting exam: " + err);
-        examSubmitted = false; // allow retry
-      });
+  prevBtn.onclick = () => {
+    if (idx > 0) {
+      idx--;
+      show(idx);
     }
+  };
 
-    // Countdown Timer
-    function startCountdown(duration, display) {
-      let timer = duration;
-      const interval = setInterval(() => {
-        if (examSubmitted) {
-          clearInterval(interval);
-          return;
-        }
-
-        let hours = Math.floor(timer / 3600);
-        let minutes = Math.floor((timer % 3600) / 60);
-        let seconds = timer % 60;
-
-        display.textContent =
-          (hours < 10 ? "0" + hours : hours) + ":" +
-          (minutes < 10 ? "0" + minutes : minutes) + ":" +
-          (seconds < 10 ? "0" + seconds : seconds);
-
-        if (--timer < 0) {
-          clearInterval(interval);
-          submitExam();
-        }
-
-        // ✅ Extra check: if current time > exam_end, force exit
-        const now = Date.now();
-        if (now > examEndTimestamp) {
-          clearInterval(interval);
-          alert("⏰ Exam time expired!");
-          window.location.href = "index.php?msg=exam_expired";
-        }
-
-      }, 1000);
+  // Timer
+  const end = <?= $exam_end_ts ?> * 1000;
+  const timer = document.getElementById('timer');
+  function tick(){
+    const diff = Math.floor((end - Date.now())/1000);
+    if (diff <= 0) {
+      timer.textContent = "00:00:00";
+      alert("Time up! Exam submitted automatically.");
+      form.submit();
+      return;
     }
+    const h = String(Math.floor(diff/3600)).padStart(2,'0');
+    const m = String(Math.floor((diff%3600)/60)).padStart(2,'0');
+    const s = String(diff%60).padStart(2,'0');
+    timer.textContent = `${h}:${m}:${s}`;
+    setTimeout(tick,1000);
+  }
+  tick();
 
-    window.onload = function () {
-      if (questions.length > 0) {
-        loadQuestion();
-        const display = document.getElementById("exam-timer");
-        startCountdown(examTimeInSeconds, display);
-      } else {
-        document.getElementById("question-text").innerText = "No questions available.";
-      }
-    };
+  // Auto-submit if student switches tab
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      alert("You left the exam page — it will be submitted automatically.");
+      form.submit();
+    }
+  });
   </script>
-
 </body>
 </html>

@@ -160,7 +160,7 @@ while ($row = mysqli_fetch_assoc($result)) {
     $sql_courses = "SELECT q.course_id, c.course_code, c.course_title, q.level_id
                     FROM questions q
                     JOIN course c ON q.course_id = c.id
-                    WHERE q.exam_schedule = ?";
+                    WHERE q.exam_schedule = ? LIMIT 1";
     $stmt = $dbcon->prepare($sql_courses);
     $stmt->bind_param("s", $exam_schedule);
     $stmt->execute();
