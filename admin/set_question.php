@@ -186,12 +186,12 @@ $num_questions = isset($_POST['num_questions']) ? intval($_POST['num_questions']
               </ul>
             </li>
 
-            <!-- <li class="pc-item pc-hasmenu">
+            <li class="pc-item pc-hasmenu">
               <a href="results.php" class="pc-link">
                 <span class="pc-micon"> <i class="bi bi-clipboard-data"></i></span>
                 <span class="pc-mtext">Results</span>
               </a>
-            </li> -->
+            </li>
 
   
       </ul>

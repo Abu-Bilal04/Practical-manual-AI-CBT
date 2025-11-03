@@ -171,12 +171,12 @@ $userusername = $_SESSION['username'];
               </ul>
             </li>
 
-            <!-- <li class="pc-item pc-hasmenu">
+            <li class="pc-item pc-hasmenu">
               <a href="results.php" class="pc-link">
                 <span class="pc-micon"> <i class="bi bi-clipboard-data"></i></span>
                 <span class="pc-mtext">Results</span>
               </a>
-            </li> -->
+            </li>
 
   
       </ul>
@@ -328,7 +328,7 @@ $userusername = $_SESSION['username'];
                   <div class="card-body">
                       <input type="text" class="form-control mb-3" placeholder="Enter student fullname" name="fullname"/>
                       <input type="text" class="form-control mb-3" placeholder="Enter student reg no." name="regno"/>
-                      <input type="text" class="form-control mb-3" placeholder="Enter student password" name="password" readonly/>
+                      <input type="text" class="form-control mb-3" placeholder="Enter student password" name="password"/>
                       <select name="level_id" class="form-control mb-3">
                           <option value="">--Select level--</option>
                           <?php

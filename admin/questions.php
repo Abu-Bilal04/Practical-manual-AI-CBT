@@ -1,426 +1,325 @@
 <?php
 include "../include/server.php";
-session_start(); 
+session_start();
 
-// Redirect if user not logged in (username required)
-if (!isset($_SESSION['username']) || empty($_SESSION['username'])) {
-    header('Location: logout.php');
+// Check admin login
+if (!isset($_SESSION['username'])) {
+    header("Location: login.php");
     exit();
 }
 
-$userusername = $_SESSION['username'];
+// Handle delete action
+if (isset($_GET['delete_course_id'])) {
+    $course_id = intval($_GET['delete_course_id']);
+    $del_sql = "DELETE FROM questions WHERE course_id = ?";
+    $stmt = $dbcon->prepare($del_sql);
+    $stmt->bind_param("i", $course_id);
+    if ($stmt->execute()) {
+        echo "<script>window.location='questions.php?msg=deleted';</script>";
+        exit();
+    } else {
+        echo "Error deleting questions: " . $dbcon->error;
+    }
+}
+
+// Fetch courses with question count
+$sql = "SELECT c.id, c.course_code, c.course_title, COUNT(q.id) AS question_count
+        FROM course c
+        LEFT JOIN questions q ON c.id = q.course_id
+        GROUP BY c.id
+        ORDER BY c.course_title ASC";
+$result = mysqli_query($dbcon, $sql);
 ?>
 <!doctype html>
-<html lang="en" data-pc-preset="preset-1" data-pc-sidebar-caption="true" data-pc-direction="ltr" dir="ltr" data-pc-theme="light">
-  
-  <head>
-    <title>Dashboard || Practical manual  system</title>
-    
-    <link rel="icon" href="../dist/assets/images/logo/logo.png" type="image/x-icon" />
-    <link rel="stylesheet" href="../dist/assets/css/style.css" id="main-style-link" />
-    <link rel="stylesheet" href="../bootstrap-icons/bootstrap-icons.css">
-
-  </head>
-  
-
-
-  <body>
-    
-  <?php if (isset($_GET['msg']) && $_GET['msg'] == "update") { ?>
-  <script>
-    iziToast.success({
-      title: '',
-      message: 'Password uploaded successfully',
-      position: 'topRight',
-      animateInside: true
-    });
-  </script>
-  <?php } ?>
-
-<div class="loader-bg fixed inset-0 bg-white dark:bg-themedark-cardbg z-[1034]">
-  <div class="loader-track h-[5px] w-full inline-block absolute overflow-hidden top-0">
-    <div class="loader-fill w-[300px] h-[5px] bg-primary-500 absolute top-0 left-0 animate-[hitZak_0.6s_ease-in-out_infinite_alternate]"></div>
-  </div>
-</div>
-
-
-    <nav class="pc-sidebar">
-      <div class="navbar-wrapper">
-        <div class="m-header flex items-center py-4 px-6 h-header-height">
-          <a href="index.php" class="b-brand flex items-center gap-3">
-            <center>
-              <img src="../dist/assets/images/logo/logo.png" width="50%" alt="">
-            </center>
+<html lang="en" data-pc-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <title>Questions || Practical Manual System</title>
+  <link rel="stylesheet" href="../dist/assets/css/style.css" />
+  <link rel="stylesheet" href="../bootstrap-icons/bootstrap-icons.css">
+  <!-- Bootstrap for Modal -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+<!-- HEADER -->
+<header class="pc-header">
+  <div class="header-wrapper flex max-sm:px-[15px] px-[25px] grow">
+    <div class="me-auto pc-mob-drp">
+      <ul class="inline-flex *:min-h-header-height *:inline-flex *:items-center">
+        <li class="pc-h-item pc-sidebar-collapse max-lg:hidden lg:inline-flex">
+          <a href="#" class="pc-head-link ltr:!ml-0 rtl:!mr-0" id="sidebar-hide">
+            <i data-feather="menu"></i>
           </a>
-        </div>
-        <div class="navbar-content h-[calc(100vh_-_74px)] py-2.5">
-          <ul class="pc-navbar">
-            <li class="pc-item pc-caption">
-            </li>
-            <li class="pc-item">
-            <li class="pc-item">
-              <a href="index.php" class="pc-link">
-                <span class="pc-micon">
-                  <i data-feather="home"></i>
-                </span>
-                <span class="pc-mtext">Dashboard</span>
-              </a>
-            </li>
-            <li class="pc-item pc-caption">
-              <label>Navigations</label>
-              <i data-feather="feather"></i>
-            </li>
-            <li class="pc-item pc-hasmenu">
-              <a href="manage_session.php" class="pc-link">
-                <span class="pc-micon"> <i class="bi bi-calendar-check"></i></span>
-                <span class="pc-mtext">Manage sessions</span>
-              </a>
-            </li>
+        </li>
+        <li class="pc-h-item pc-sidebar-popup lg:hidden">
+          <a href="#" class="pc-head-link ltr:!ml-0 rtl:!mr-0" id="mobile-collapse">
+            <i data-feather="menu"></i>
+          </a>
+        </li>
+        <li class="dropdown pc-h-item">
+          <a class="pc-head-link dropdown-toggle me-0" data-pc-toggle="dropdown" href="#" role="button"
+            aria-haspopup="false" aria-expanded="false">
+            <i data-feather="search"></i>
+          </a>
+          <div class="dropdown-menu pc-h-dropdown drp-search">
+            <form class="px-2 py-1">
+              <input type="search" class="form-control !border-0 !shadow-none" placeholder="Search here. . ." />
+            </form>
+          </div>
+        </li>
+      </ul>
+    </div>
 
-            <li class="pc-item pc-hasmenu">
-              <a href="manage_level.php" class="pc-link">
-                <span class="pc-micon"> <i class="bi bi-layers"></i></span>
-                <span class="pc-mtext">Manage levels</span>
-              </a>
-            </li>
+    <div class="ms-auto">
+      <ul class="inline-flex *:min-h-header-height *:inline-flex *:items-center">
+        <li class="dropdown pc-h-item header-user-profile">
+          <a class="pc-head-link dropdown-toggle arrow-none me-0" data-pc-toggle="dropdown" href="#" role="button"
+            aria-haspopup="false" data-pc-auto-close="outside" aria-expanded="false">
+            <i data-feather="user"></i>
+          </a>
+          <div class="dropdown-menu dropdown-user-profile dropdown-menu-end pc-h-dropdown p-2 overflow-hidden">
+            <div class="dropdown-header flex items-center justify-between py-4 px-5 bg-primary-500">
+              <div class="flex mb-1 items-center">
+                <div class="shrink-0">
+                  <img src="../dist/assets/images/user/avatar-2.jpg" alt="user-image" class="w-10 rounded-full" />
+                </div>
+                <div class="grow ms-3">
+                  <h6 class="mb-1 text-white"><?= htmlspecialchars($_SESSION['username']); ?></h6>
+                  <span class="text-white">Admin</span>
+                </div>
+              </div>
+            </div>
+            <div class="dropdown-body py- px-5">
+              <div class="profile-notification-scroll position-relative" style="max-height: calc(100vh - 225px)">
+                <a href="logout.php" style="cursor: pointer;" class="btn btn-danger flex items-center justify-center w-full">
+                  <svg class="pc-icon me-2 w-[22px] h-[22px]">
+                    <use xlink:href="#custom-logout-1-outline"></use>
+                  </svg>
+                  Logout
+                </a>
+              </div>
+            </div>
+          </div>
+        </li>
+      </ul>
+    </div>
+  </div>
+</header>
 
-            
-            <li class="pc-item pc-hasmenu">
-              <a href="#!" class="pc-link">
-                <span class="pc-micon"> <i class="bi bi-book"></i></span>
-                <span class="pc-mtext">Courses</span>
-                <span class="pc-arrow"><i class="bi bi-caret-right"></i></span>
-              </a>
-              <ul class="pc-submenu">
-                <li class="pc-item"><a class="pc-link" href="register_course.php"><i class="bi bi-person-plus"></i> Register</a></li>
-                <li class="pc-item"><a class="pc-link" href="view_course.php"><i class="bi bi-person-lines-fill"></i> Manage</a></li>
-              </ul>
-            </li>
-            
-            <li class="pc-item pc-hasmenu">
-              <a href="#!" class="pc-link">
-                <span class="pc-micon"> <i class="bi bi-people"></i></span>
-                <span class="pc-mtext">Students</span>
-                <span class="pc-arrow"><i class="bi bi-caret-right"></i></span>
-              </a>
-              <ul class="pc-submenu">
-                <li class="pc-item"><a class="pc-link" href="register_student.php"><i class="bi bi-person-plus"></i> Register</a></li>
-                <li class="pc-item"><a class="pc-link" href="view_student.php"><i class="bi bi-person-lines-fill"></i> View</a></li>
-              </ul>
-            </li>
-
-            <li class="pc-item pc-hasmenu">
-              <a href="#!" class="pc-link">
-                <span class="pc-micon"> <i class="bi bi-journal-text"></i></span>
-                <span class="pc-mtext">Manuals</span>
-                <span class="pc-arrow"><i class="bi bi-caret-right"></i></span>
-              </a>
-              <ul class="pc-submenu">
-                <li class="pc-item"><a class="pc-link" href="set_question.php"><i class="bi bi-pencil-square"></i> Set question</a></li>
-                <li class="pc-item"><a class="pc-link" href="questions.php"><i class="bi bi-book"></i> View manuals</a></li>
-              </ul>
-            </li>
-
-            <!-- <li class="pc-item pc-hasmenu">
-              <a href="results.php" class="pc-link">
-                <span class="pc-micon"> <i class="bi bi-clipboard-data"></i></span>
-                <span class="pc-mtext">Results</span>
-              </a>
-            </li> -->
-
-  
+<!-- SIDEBAR -->
+<nav class="pc-sidebar">
+  <div class="navbar-wrapper">
+    <div class="m-header flex items-center py-4 px-6 h-header-height">
+      <a href="index.php" class="b-brand flex items-center gap-3">
+        <center>
+          <img src="../dist/assets/images/logo/logo.png" width="50%" alt="">
+        </center>
+      </a>
+    </div>
+    <div class="navbar-content h-[calc(100vh_-_74px)] py-2.5">
+      <ul class="pc-navbar">
+        <li class="pc-item pc-caption">
+        </li>
+        <li class="pc-item">
+          <a href="index.php" class="pc-link">
+            <span class="pc-micon">
+              <i data-feather="home"></i>
+            </span>
+            <span class="pc-mtext">Dashboard</span>
+          </a>
+        </li>
+        <li class="pc-item pc-caption">
+          <label>Navigations</label>
+          <i data-feather="feather"></i>
+        </li>
+        <li class="pc-item pc-hasmenu">
+          <a href="manage_session.php" class="pc-link">
+            <span class="pc-micon"> <i class="bi bi-calendar-check"></i></span>
+            <span class="pc-mtext">Manage sessions</span>
+          </a>
+        </li>
+        <li class="pc-item pc-hasmenu">
+          <a href="manage_level.php" class="pc-link">
+            <span class="pc-micon"> <i class="bi bi-layers"></i></span>
+            <span class="pc-mtext">Manage levels</span>
+          </a>
+        </li>
+        <li class="pc-item pc-hasmenu">
+          <a href="#!" class="pc-link">
+            <span class="pc-micon"> <i class="bi bi-book"></i></span>
+            <span class="pc-mtext">Courses</span>
+            <span class="pc-arrow"><i class="bi bi-caret-right"></i></span>
+          </a>
+          <ul class="pc-submenu">
+            <li class="pc-item"><a class="pc-link" href="register_course.php"><i class="bi bi-person-plus"></i> Register</a></li>
+            <li class="pc-item"><a class="pc-link" href="view_course.php"><i class="bi bi-person-lines-fill"></i> Manage</a></li>
+          </ul>
+        </li>
+        <li class="pc-item pc-hasmenu">
+          <a href="#!" class="pc-link">
+            <span class="pc-micon"> <i class="bi bi-people"></i></span>
+            <span class="pc-mtext">Students</span>
+            <span class="pc-arrow"><i class="bi bi-caret-right"></i></span>
+          </a>
+          <ul class="pc-submenu">
+            <li class="pc-item"><a class="pc-link" href="register_student.php"><i class="bi bi-person-plus"></i> Register</a></li>
+            <li class="pc-item"><a class="pc-link" href="view_student.php"><i class="bi bi-person-lines-fill"></i> View</a></li>
+          </ul>
+        </li>
+        <li class="pc-item pc-hasmenu">
+          <a href="#!" class="pc-link">
+            <span class="pc-micon"> <i class="bi bi-journal-text"></i></span>
+            <span class="pc-mtext">Manuals</span>
+            <span class="pc-arrow"><i class="bi bi-caret-right"></i></span>
+          </a>
+          <ul class="pc-submenu">
+            <li class="pc-item"><a class="pc-link" href="set_question.php"><i class="bi bi-pencil-square"></i> Set question</a></li>
+            <li class="pc-item"><a class="pc-link" href="questions.php"><i class="bi bi-book"></i> View manuals</a></li>
+          </ul>
+        </li>
+        <li class="pc-item pc-hasmenu">
+          <a href="results.php" class="pc-link">
+            <span class="pc-micon"> <i class="bi bi-clipboard-data"></i></span>
+            <span class="pc-mtext">Results</span>
+          </a>
+        </li>
       </ul>
     </div>
   </div>
 </nav>
+<!-- MAIN CONTENT -->
+<div class="pc-container" style="margin-left:250px;">
+  <div class="pc-content" style="padding-top: 0px;">
 
-
-<header class="pc-header">
-  <div class="header-wrapper flex max-sm:px-[15px] px-[25px] grow">
-<div class="me-auto pc-mob-drp">
-  <ul class="inline-flex *:min-h-header-height *:inline-flex *:items-center">
-
-    <li class="pc-h-item pc-sidebar-collapse max-lg:hidden lg:inline-flex">
-      <a href="#" class="pc-head-link ltr:!ml-0 rtl:!mr-0" id="sidebar-hide">
-        <i data-feather="menu"></i>
-      </a>
-    </li>
-    <li class="pc-h-item pc-sidebar-popup lg:hidden">
-      <a href="#" class="pc-head-link ltr:!ml-0 rtl:!mr-0" id="mobile-collapse">
-        <i data-feather="menu"></i>
-      </a>
-    </li>
-    <li class="dropdown pc-h-item">
-      <a class="pc-head-link dropdown-toggle me-0" data-pc-toggle="dropdown" href="#" role="button"
-        aria-haspopup="false" aria-expanded="false">
-        <i data-feather="search"></i>
-      </a>
-      <div class="dropdown-menu pc-h-dropdown drp-search">
-        <form class="px-2 py-1">
-          <input type="search" class="form-control !border-0 !shadow-none" placeholder="Search here. . ." />
-        </form>
+    <div class="page-header">
+      <div class="page-block">
+        <div class="page-header-title">
+          <h5 class="mb-0 font-medium">Manage Questions</h5>
+        </div>
+        <ul class="breadcrumb">
+          <li><a href="index.php">Home</a></li>
+          <i class="bi bi-arrow-right-circle"></i>
+          <li>Questions</li>
+        </ul>
       </div>
-    </li>
-  </ul>
+    </div>
+
+    <div class="card p-4">
+      
+      <div class="table-responsive">
+        <table class="table table-striped table-bordered">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Course Code</th>
+              <th>Course Title</th>
+              <th>No. of Questions</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php if (mysqli_num_rows($result) > 0): ?>
+              <?php $sn = 1; while ($row = mysqli_fetch_assoc($result)): ?>
+                <tr>
+                  <td><?= $sn++ ?></td>
+                  <td><?= htmlspecialchars($row['course_code']) ?></td>
+                  <td><?= htmlspecialchars($row['course_title']) ?></td>
+                  <td><?= intval($row['question_count']) ?></td>
+                  <td>
+                    <a href="questions.php?delete_course_id=<?= $row['id'] ?>" 
+                      onclick="return confirm('Are you sure you want to delete all questions for <?= htmlspecialchars($row['course_title']) ?>?');" 
+                      class="btn btn-sm btn-danger">
+                      Delete
+                    </a>
+                    <?php
+                    // Handle delete via GET
+                    if (isset($_GET['delete_course_id'])) {
+                        $course_id = intval($_GET['delete_course_id']);
+                        $del_sql = "DELETE FROM questions WHERE course_id = ?";
+                        $stmt = $dbcon->prepare($del_sql);
+                        $stmt->bind_param("i", $course_id);
+                        if ($stmt->execute()) {
+                            echo "<script>window.location='questions.php?msg=deleted';</script>";
+                            exit();
+                        } else {
+                            echo "Error deleting questions: " . $dbcon->error;
+                        }
+                    }
+                    ?>
+                  </td>
+                </tr>
+              <?php endwhile; ?>
+            <?php else: ?>
+              <tr>
+                <td colspan="5" class="text-center">No courses found.</td>
+              </tr>
+            <?php endif; ?>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 </div>
 
-<div class="ms-auto">
-  <ul class="inline-flex *:min-h-header-height *:inline-flex *:items-center">
-<!--<li class="dropdown pc-h-item">
-      <a class="pc-head-link dropdown-toggle me-0" data-pc-toggle="dropdown" href="#" role="button"
-        aria-haspopup="false" aria-expanded="false">
-        <i data-feather="sun"></i>
-      </a>
-      <div class="dropdown-menu dropdown-menu-end pc-h-dropdown">
-        <a href="#!" class="dropdown-item" onclick="layout_change('dark')">
-          <i data-feather="moon"></i>
-          <span>Dark</span>
-        </a>
-        <a href="#!" class="dropdown-item" onclick="layout_change('light')">
-          <i data-feather="sun"></i>
-          <span>Light</span>
-        </a>
-        
+<!-- Modal -->
+<div class="modal fade" id="viewQuestionsModal" tabindex="-1" aria-labelledby="viewQuestionsLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title" id="viewQuestionsLabel">Questions</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-    </li> -->
-   
-    
-    <li class="dropdown pc-h-item header-user-profile">
-      <a class="pc-head-link dropdown-toggle arrow-none me-0" data-pc-toggle="dropdown" href="#" role="button"
-        aria-haspopup="false" data-pc-auto-close="outside" aria-expanded="false">
-        <i data-feather="user"></i>
-      </a>
-      <div class="dropdown-menu dropdown-user-profile dropdown-menu-end pc-h-dropdown p-2 overflow-hidden">
-        <div class="dropdown-header flex items-center justify-between py-4 px-5 bg-primary-500">
-          <div class="flex mb-1 items-center">
-            <div class="shrink-0">
-              <img src="../dist/assets/images/user/avatar-2.jpg" alt="user-image" class="w-10 rounded-full" />
-            </div>
-            <div class="grow ms-3">
-              <h6 class="mb-1 text-white">Muhammad Ibrahim Musa</h6>
-              <span class="text-white">Admin</span>
-            </div>
-          </div>
-        </div>
-        <div class="dropdown-body py- px-5">
-          <div class="profile-notification-scroll position-relative" style="max-height: calc(100vh - 225px)">
-            <a href="#" class="dropdown-item">
-              <form method="post">
-                <span>
-                  <input type="password" name="new_password" class="form-control" placeholder="Enter new password" required>
-                </span>
-                <center>
-                  <button type="submit" name="change_password" class="mt-2 btn btn-primary">Change Password</button>
-                </center>
-              </form>
-              <?php
-                if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
-                    $new_password = trim($_POST['new_password']);
-
-                    if (empty($new_password)) {
-                        die("Password cannot be empty.");
-                    }
-
-                    // Get logged-in admin ID from session
-                    $admin_id = $_SESSION['admin_id'] ?? 1; // fallback to admin ID 1
-
-                    // Update password directly (NO HASH)
-                    $sql = "UPDATE admin SET password = ? WHERE id = ?";
-                    $stmt = $dbcon->prepare($sql);
-                    $stmt->bind_param("si", $new_password, $admin_id);
-
-                    if ($stmt->execute()) {
-                        echo "<script>window.open('questions.php?msg=update', '_self');</script>";
-                    } else {
-                        echo "Error updating password: " . $dbcon->error;
-                    }
-                }
-                ?>
-            <div class="grid my-3">
-              <a href="logout.php" style="cursor: pointer;" class="btn btn-danger flex items-center justify-center">
-                <svg class="pc-icon me-2 w-[22px] h-[22px]">
-                  <use xlink:href="#custom-logout-1-outline"></use>
-                </svg>
-                Logout
-              </a>
-            </div>
-          </div>
-        </div>
+      <div class="modal-body">
+        <div id="modalContent">Loading questions...</div>
       </div>
-    </li>
-  </ul>
-</div></div>
-</header>
+    </div>
+  </div>
+</div>
 
-
-
-    <div class="pc-container">
-      <div class="pc-content">
-        <div class="page-header">
-          <div class="page-block">
-            <div class="page-header-title">
-              <h5 class="mb-0 font-medium">Questions</h5>
-            </div>
-            <ul class="breadcrumb">
-              <li><a href="index.php">Home</a></li>
-              <i class="bi bi-arrow-right-circle"></i>
-              <li><a href="questions.php">Questions</a></li>
-            </ul>
-          </div>
-        </div>
-        
-
-
-        <div class="grid ">
-            <div class="col-span-12">
-              <div class="card">
-                <div class="card-header">
-                  <h5>Questions</h5>
-                </div>
-                <div class="card-body">
-                  <table class="table table-striped table-bordered">
-    <thead class="table-light">
-        <tr>
-            <th>S/No</th>
-            <th>Session</th>
-            <th>Code</th>
-            <th>Level</th>
-            <th>Status</th>
-            <th>Action</th>
-        </tr>
-    </thead>
-    <tbody>
-<?php
-$sql = "SELECT MIN(q.id) AS id, q.exam_schedule, q.exam_time,
-               s.session AS session_name, 
-               c.course_code, 
-               l.level AS level_name
-        FROM questions q
-        JOIN session s ON q.session_id = s.id
-        JOIN course c ON q.course_id = c.id
-        JOIN level l ON q.level_id = l.id
-        GROUP BY q.exam_schedule
-        ORDER BY q.exam_schedule ASC";
-
-$result = mysqli_query($dbcon, $sql);
-
-if (mysqli_num_rows($result) > 0) {
-    $sn = 1;
-    while ($row = mysqli_fetch_assoc($result)) {
-        $exam_start = $row['exam_schedule'];
-        $exam_time  = (int)$row['exam_time']; // in minutes
-        ?>
-        <tr>
-            <td><?= $sn++ ?></td>
-            <td><?= htmlspecialchars($row['session_name']) ?></td>
-            <td><?= htmlspecialchars($row['course_code']) ?></td>
-            <td><?= htmlspecialchars($row['level_name']) ?></td>
-            <td>
-                <span id="status-<?= $row['id'] ?>" 
-                      data-start="<?= $exam_start ?>" 
-                      data-duration="<?= $exam_time ?>">
-                      <?= htmlspecialchars($exam_start) ?> 
-                </span>
-            </td>
-            <td>
-                <a href="view/view_exam.php?exam_id=<?= $row['id'] ?>" class="btn btn-primary btn-sm">View</a>
-            </td>
-        </tr>
-        <?php
-    }
-} else {
-    echo '<tr><td colspan="6" class="text-center">No exams found</td></tr>';
-}
-?>
-
-    </tbody>
-</table>
-
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-// Function to update countdowns every second
-function updateCountdowns() {
-    const now = new Date().getTime();
+document.addEventListener('DOMContentLoaded', function() {
+  const viewButtons = document.querySelectorAll('.view-btn');
+  const modalContent = document.getElementById('modalContent');
+  const modalTitle = document.getElementById('viewQuestionsLabel');
+  const viewModal = new bootstrap.Modal(document.getElementById('viewQuestionsModal'));
 
-    document.querySelectorAll("[id^='status-']").forEach(el => {
-        const startTime = new Date(el.dataset.start).getTime();
-        const duration  = parseInt(el.dataset.duration) * 60 * 1000; // minutes → ms
-        const endTime   = startTime + duration;
+  viewButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const courseId = btn.getAttribute('data-course-id');
+      const courseName = btn.getAttribute('data-course-name');
+      modalTitle.textContent = "Questions for " + courseName;
+      modalContent.innerHTML = 'Loading questions...';
 
-        if (now < startTime) {
-            // Countdown before start
-            const diff = startTime - now;
-            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-            const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-            const secs = Math.floor((diff % (1000 * 60)) / 1000);
-            el.innerHTML = `<span class="badge bg-info">${days}d:${hours}h:${mins}m:${secs}s to start</span>`;
-        } else if (now >= startTime && now <= endTime) {
-            // Ongoing
-            el.innerHTML = `<span class="badge bg-warning">Ongoing</span>`;
-        } else {
-            // Passed
-            el.innerHTML = `<span class="badge bg-danger">Passed</span>`;
-        }
+      fetch('fetch_questions.php?course_id=' + courseId)
+        .then(res => res.json())
+        .then(data => {
+          if (data.length === 0) {
+            modalContent.innerHTML = '<p>No questions found for this course.</p>';
+            return;
+          }
+
+          let html = '<table class="table table-bordered"><thead><tr><th>#</th><th>Question</th><th>Correct Answer</th></tr></thead><tbody>';
+          data.forEach((q, index) => {
+            html += `<tr>
+                       <td>${index+1}</td>
+                       <td>${q.question_text}</td>
+                       <td>${q.correct_answer}</td>
+                     </tr>`;
+          });
+          html += '</tbody></table>';
+          modalContent.innerHTML = html;
+        })
+        .catch(err => {
+          modalContent.innerHTML = '<p class="text-danger">Error loading questions.</p>';
+          console.error(err);
+        });
+
+      viewModal.show();
     });
-}
-
-// Run immediately, then every second
-updateCountdowns();
-setInterval(updateCountdowns, 1000);
+  });
+});
 </script>
-
-                </div>
-              </div>
-            </div>
-        </div>
-        
-
-      </div>
-    </div>
-    
-
-    <script src="../dist/assets/js/plugins/simplebar.min.js"></script>
-    <script src="../dist/assets/js/plugins/popper.min.js"></script>
-    <script src="../dist/assets/js/icon/custom-icon.js"></script>
-    <script src="../dist/assets/js/plugins/feather.min.js"></script>
-    <script src="../dist/assets/js/component.js"></script>
-    <script src="../dist/assets/js/theme.js"></script>
-    <script src="../dist/assets/js/script.js"></script>
-
-    <div class="floting-button fixed bottom-[50px] right-[30px] z-[1030]">
-    </div>
-
-    
-    <script>
-      layout_change('false');
-    </script>
-     
-    
-    <script>
-      layout_theme_sidebar_change('dark');
-    </script>
-    
-     
-    <script>
-      change_box_container('false');
-    </script>
-     
-    <script>
-      layout_caption_change('true');
-    </script>
-     
-    <script>
-      layout_rtl_change('false');
-    </script>
-     
-    <script>
-      preset_change('preset-1');
-    </script>
-     
-    <script>
-      main_layout_change('vertical');
-    </script>
-    
-
-  </body>
+</body>
 </html>
