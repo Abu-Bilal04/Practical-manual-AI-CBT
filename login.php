@@ -57,6 +57,10 @@
         <input type="password" name="password" class="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400" placeholder="Enter your password" required>
       </div>
       <button type="submit" class="w-full bg-blue-500 text-white py-2 rounded-xl hover:bg-blue-600 transition" name="student_login">Login</button>
+      <div class="flex justify-center mt-4">
+        <a href="index.php" class="px-5 py-2">Back to Home</a>
+      </div>
+
     </form>
   </div>
 
