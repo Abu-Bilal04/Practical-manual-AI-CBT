@@ -61,6 +61,9 @@
                 <div class="mt-4 text-center">
                   <button type="submit" class="btn btn-primary mx-auto shadow-2xl" name="login">Login</button>
                 </div>
+                <div class="flex justify-center mt-4">
+                  <a href="index.php" class="px-5 py-2">Back to Home</a>
+                </div>
                 <div class="flex justify-between items-end flex-wrap mt-4">
                 </div>
               </div>
